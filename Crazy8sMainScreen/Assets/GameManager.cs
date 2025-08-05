@@ -23,8 +23,8 @@ public class GameManager : MonoBehaviour
     public TextMeshProUGUI currentPlayerText;
     public TextMeshProUGUI currentSuitText;
     public TextMeshProUGUI deckCountText;
-    public Transform gamePlayersContainer;
-    public Transform playerHand;
+    public Image topCardImage;
+    public PlayerPositionManager playerPositionManager;
     
     [Header("Game Over UI")]
     public TextMeshProUGUI winnerText;
@@ -260,11 +260,19 @@ public class GameManager : MonoBehaviour
         
         if (socket != null && socket.Connected && roomCode != null && roomCode != "")
         {
-            if (players.Count >= 2)
+            if (players.Count >= 2 && players.Count <= 4)
             {
                 Debug.Log("Starting game with " + players.Count + " players");
                 // Send just the room code as data - no callback needed
                 socket.Emit("start-game", new { roomCode = roomCode });
+            }
+            else if (players.Count > 4)
+            {
+                Debug.LogWarning("Cannot start game - too many players (" + players.Count + "/4 max)");
+                string currentRoom = roomCode;
+                EnqueueMainThreadAction(delegate() {
+                    roomCodeText.text = currentRoom + " - Max 4 players";
+                });
             }
             else
             {
@@ -611,6 +619,12 @@ public class GameManager : MonoBehaviour
                 {
                     currentPlayerText.text = "Current Player: " + currentPlayer;
                     Debug.Log("Updated current player text to: " + currentPlayer);
+                    
+                    // Highlight current player in the position manager
+                    if (playerPositionManager != null)
+                    {
+                        playerPositionManager.HighlightCurrentPlayer(currentPlayer);
+                    }
                 }
                 else
                 {
@@ -622,6 +636,15 @@ public class GameManager : MonoBehaviour
                 {
                     currentSuitText.text = "Current Suit: " + currentSuit;
                     Debug.Log("Updated current suit text to: " + currentSuit);
+                }
+                
+                // Update top card display
+                if (topCardImage != null && currentCard != null && currentCard != "")
+                {
+                    // Call the UpdateTopCard method to properly update the card display
+                    UpdateTopCard(currentCard);
+                    topCardImage.gameObject.SetActive(true);
+                    Debug.Log("Updated top card to: " + currentCard);
                 }
                 
                 // Update deck count
@@ -993,15 +1016,58 @@ public class GameManager : MonoBehaviour
         Debug.Log("=== UpdatePlayersList called ===");
         Debug.Log("Updating players list with " + newPlayers.Length + " players");
         
-        // Force immediate UI refresh at start
-        Canvas.ForceUpdateCanvases();
+        // Limit to max 4 players
+        int maxPlayers = Mathf.Min(newPlayers.Length, 4);
+        PlayerData[] limitedPlayers = new PlayerData[maxPlayers];
+        System.Array.Copy(newPlayers, limitedPlayers, maxPlayers);
         
         // Log each player being processed
-        for (int i = 0; i < newPlayers.Length; i++)
+        for (int i = 0; i < limitedPlayers.Length; i++)
         {
-            Debug.Log("Player " + i + ": " + newPlayers[i].name + " (" + newPlayers[i].cardCount + " cards)");
+            Debug.Log("Player " + i + ": " + limitedPlayers[i].name + " (" + limitedPlayers[i].cardCount + " cards)");
         }
         
+        // Update our local players list
+        players.Clear();
+        players.AddRange(limitedPlayers);
+        
+        // Use PlayerPositionManager for game screen
+        if (playerPositionManager != null)
+        {
+            playerPositionManager.UpdatePlayersDisplay(limitedPlayers);
+        }
+        else
+        {
+            Debug.LogError("PlayerPositionManager is null! Please assign it in the Inspector.");
+        }
+        
+        // Still update lobby screen for compatibility
+        UpdateLobbyPlayersList(limitedPlayers);
+        
+        // Enable start game button only if 2-4 players
+        if (startGameButton != null)
+        {
+            bool canStart = limitedPlayers.Length >= 2 && limitedPlayers.Length <= 4;
+            startGameButton.interactable = canStart;
+            Debug.Log("Start game button enabled: " + canStart + " (players: " + limitedPlayers.Length + "/2-4 required)");
+            
+            if (limitedPlayers.Length < 2)
+            {
+                Debug.Log("Need " + (2 - limitedPlayers.Length) + " more players to start the game");
+            }
+            else if (limitedPlayers.Length > 4)
+            {
+                Debug.Log("Too many players (" + limitedPlayers.Length + "/4 max)");
+            }
+        }
+        else
+        {
+            Debug.LogError("StartGameButton is null!");
+        }
+    }
+    
+    void UpdateLobbyPlayersList(PlayerData[] newPlayers)
+    {
         if (playersContainer == null) 
         {
             Debug.LogError("PlayersContainer is null! Please assign it in the Inspector.");
@@ -1013,140 +1079,129 @@ public class GameManager : MonoBehaviour
             Debug.LogError("PlayerCardPrefab is null! Please assign it in the Inspector.");
             return;
         }
-        
-        Debug.Log("PlayersContainer name: " + playersContainer.name);
-        Debug.Log("PlayersContainer active: " + playersContainer.gameObject.activeInHierarchy);
-        Debug.Log("PlayersContainer position: " + playersContainer.position);
-        Debug.Log("PlayerCardPrefab name: " + playerCardPrefab.name);
-        Debug.Log("PlayerCardPrefab active: " + playerCardPrefab.activeInHierarchy);
-        
-        // Check if the PlayersContainer is actually visible in the scene
-        Canvas parentCanvas = playersContainer.GetComponentInParent<Canvas>();
-        if (parentCanvas != null)
-        {
-            Debug.Log("PlayersContainer parent Canvas: " + parentCanvas.name + " - enabled: " + parentCanvas.enabled);
-        }
-        else
-        {
-            Debug.LogError("PlayersContainer has no parent Canvas!");
-        }
-        
-        // Update our local players list
-        players.Clear();
-        players.AddRange(newPlayers);
-        
-        // Clear existing player cards
-        int childrenToDestroy = playersContainer.childCount;
-        Debug.Log("Destroying " + childrenToDestroy + " existing player cards");
-        
+
+        // Clear existing player cards in lobby
         foreach (Transform child in playersContainer)
         {
             Destroy(child.gameObject);
         }
-        
-        // Add new player cards
-        Debug.Log("Starting to create " + newPlayers.Length + " player cards");
-        
+
+        // Add new player cards for lobby
         foreach (var player in newPlayers)
         {
-            Debug.Log("Creating player card for: " + player.name + " (" + player.cardCount + " cards)");
-            
             GameObject playerCard = Instantiate(playerCardPrefab, playersContainer);
-            Debug.Log("Player card instantiated: " + playerCard.name);
-            Debug.Log("Player card parent: " + playerCard.transform.parent.name);
-            Debug.Log("Player card world position: " + playerCard.transform.position);
-            Debug.Log("Player card local position: " + playerCard.transform.localPosition);
-            
-            // Ensure the card is active
             playerCard.SetActive(true);
-            Debug.Log("Player card set to active");
-            
-            // Fix RectTransform sizing - this is crucial!
-            RectTransform cardRect = playerCard.GetComponent<RectTransform>();
-            if (cardRect != null)
-            {
-                // Set a proper size for the player card
-                cardRect.sizeDelta = new Vector2(300f, 50f); // Width: 300px, Height: 50px
-                Debug.Log("Set PlayerCard RectTransform size to: " + cardRect.sizeDelta);
-                
-                // Add Content Size Fitter if it doesn't exist
-                ContentSizeFitter sizeFitter = playerCard.GetComponent<ContentSizeFitter>();
-                if (sizeFitter == null)
-                {
-                    sizeFitter = playerCard.AddComponent<ContentSizeFitter>();
-                    sizeFitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
-                    sizeFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-                    Debug.Log("Added Content Size Fitter to PlayerCard");
-                }
-                
-                // Add Layout Element for proper sizing
-                LayoutElement layoutElement = playerCard.GetComponent<LayoutElement>();
-                if (layoutElement == null)
-                {
-                    layoutElement = playerCard.AddComponent<LayoutElement>();
-                    layoutElement.minWidth = 250f;
-                    layoutElement.minHeight = 40f;
-                    layoutElement.preferredWidth = 300f;
-                    layoutElement.preferredHeight = 50f;
-                    Debug.Log("Added Layout Element to PlayerCard");
-                }
-                
-                // Force immediate layout recalculation
-                LayoutRebuilder.ForceRebuildLayoutImmediate(cardRect);
-                Debug.Log("Final player card size: " + cardRect.sizeDelta);
-            }
             
             var nameText = playerCard.GetComponentInChildren<TextMeshProUGUI>();
-            
             if (nameText != null)
             {
                 string playerName = (player.name == null || player.name == "") ? "Unknown" : player.name;
                 nameText.text = playerName;
-                Debug.Log("Player card text set to: " + nameText.text);
-                Debug.Log("Text component active: " + nameText.gameObject.activeInHierarchy);
-                Debug.Log("Text component enabled: " + nameText.enabled);
-                Debug.Log("Player card RectTransform size: " + playerCard.GetComponent<RectTransform>().sizeDelta);
-            }
-            else
-            {
-                Debug.LogError("PlayerCard prefab doesn't have TextMeshProUGUI component!");
-                Debug.LogError("PlayerCard components: ");
-                Component[] components = playerCard.GetComponentsInChildren<Component>();
-                foreach (Component comp in components)
-                {
-                    Debug.LogError("  - " + comp.GetType().Name + " on " + comp.gameObject.name);
-                }
             }
         }
-        
-        Debug.Log("PlayersContainer now has " + playersContainer.childCount + " children");
-        
-        // Force UI layout refresh - this is crucial for Layout Groups!
+
+        // Force UI layout refresh for lobby
         Canvas.ForceUpdateCanvases();
-        
-        // Also try to rebuild the layout
         if (playersContainer.GetComponent<UnityEngine.UI.LayoutGroup>() != null)
         {
             UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(playersContainer.GetComponent<RectTransform>());
-            Debug.Log("Forced layout rebuild on PlayersContainer");
         }
+    }
+    
+    void UpdateTopCard(string cardValue)
+    {
+        Debug.Log($"=== UpdateTopCard called with: {cardValue} ===");
         
-        // Enable start game button only if 2+ players
-        if (startGameButton != null)
+        if (topCardImage != null && cardValue != null && cardValue != "")
         {
-            bool canStart = newPlayers.Length >= 2; // Need at least 2 players for a real game
-            startGameButton.interactable = canStart;
-            Debug.Log("Start game button enabled: " + canStart + " (players: " + newPlayers.Length + "/2 required)");
-            
-            if (!canStart)
+            // Get the CardController component from the top card
+            CardController cardController = topCardImage.GetComponent<CardController>();
+            if (cardController == null)
             {
-                Debug.Log("Need " + (2 - newPlayers.Length) + " more players to start the game");
+                Debug.Log("No CardController found, adding one to topCardImage");
+                cardController = topCardImage.gameObject.AddComponent<CardController>();
+            }
+            else
+            {
+                Debug.Log("Found existing CardController on topCardImage");
+            }
+            
+            // Parse card value (format like "J of hearts", "8 of hearts")
+            CardData cardData = ParseCardValue(cardValue);
+            if (cardData != null)
+            {
+                Debug.Log($"Parsed card data: {cardData.value} of {cardData.suit}");
+                cardController.SetCard(cardData.suit, cardData.value);
+                Debug.Log($"Called CardController.SetCard with: {cardData.suit}, {cardData.value}");
+            }
+            else
+            {
+                Debug.LogWarning("Could not parse card value: " + cardValue);
             }
         }
         else
         {
-            Debug.LogError("StartGameButton is null!");
+            if (topCardImage == null) Debug.LogError("topCardImage is null!");
+            if (cardValue == null || cardValue == "") Debug.LogError("cardValue is null or empty!");
         }
+    }
+    
+    // Helper method to parse card strings like "J of hearts", "8 of hearts", "A of spades"
+    CardData ParseCardValue(string cardString)
+    {
+        Debug.Log($"ParseCardValue called with: '{cardString}'");
+        
+        if (string.IsNullOrEmpty(cardString))
+        {
+            Debug.LogError("Card string is null or empty");
+            return null;
+        }
+        
+        // Expected format: "J of hearts", "8 of hearts", "A of spades"
+        string[] parts = cardString.Split(new string[] { " of " }, StringSplitOptions.None);
+        if (parts.Length != 2)
+        {
+            Debug.LogError($"Invalid card format: '{cardString}'. Expected format: 'RANK of SUIT'");
+            return null;
+        }
+        
+        string valueStr = parts[0].Trim();
+        string suit = parts[1].Trim().ToLower();
+        
+        Debug.Log($"Parsed parts - Value: '{valueStr}', Suit: '{suit}'");
+        
+        // Convert suit to lowercase for consistency
+        if (suit != "hearts" && suit != "diamonds" && suit != "clubs" && suit != "spades")
+        {
+            Debug.LogError($"Invalid suit: '{suit}'. Expected: hearts, diamonds, clubs, or spades");
+            return null;
+        }
+        
+        // Convert value
+        int value = 0;
+        switch (valueStr.ToUpper())
+        {
+            case "A": value = 1; break;
+            case "J": value = 11; break;
+            case "Q": value = 12; break;
+            case "K": value = 13; break;
+            default:
+                if (!int.TryParse(valueStr, out value))
+                {
+                    Debug.LogError($"Invalid card value: '{valueStr}'");
+                    return null;
+                }
+                break;
+        }
+        
+        if (value < 1 || value > 13)
+        {
+            Debug.LogError($"Card value out of range: {value}");
+            return null;
+        }
+        
+        Debug.Log($"Successfully parsed card: {value} of {suit}");
+        return new CardData(suit, value);
     }
     
     System.Collections.IEnumerator RefreshUIDelayed()
