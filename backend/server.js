@@ -58,12 +58,23 @@ io.on('connection', (socket) => {
       socket.join(roomCode);
       
       const roomData = roomManager.getRoomData(roomCode);
-      callback({ success: true, roomCode, roomData });
+      
+      // Support both callback and event patterns
+      if (callback && typeof callback === 'function') {
+        callback({ success: true, roomCode, roomData });
+      } else {
+        // Send response via event for Unity
+        socket.emit('room-created', { roomCode: roomCode });
+      }
       
       console.log(`Host ${socket.id} created room ${roomCode}`);
     } catch (error) {
       console.error('Error creating room:', error);
-      callback({ success: false, error: error.message });
+      if (callback && typeof callback === 'function') {
+        callback({ success: false, error: error.message });
+      } else {
+        socket.emit('room-error', error.message);
+      }
     }
   });
 
@@ -98,7 +109,10 @@ io.on('connection', (socket) => {
   // Host starts game
   socket.on('start-game', (data, callback) => {
     try {
-      const { roomCode } = data;
+      // Handle both string roomCode and object with roomCode
+      const roomCode = typeof data === 'string' ? data : data.roomCode;
+      console.log(`Starting game for room: ${roomCode}`);
+      
       const result = roomManager.startGame(roomCode, socket.id);
       
       if (result.success) {
@@ -128,17 +142,33 @@ io.on('connection', (socket) => {
           }))
         };
         
-        socket.emit('game-started', {
+        // Emit to all clients in room (including Unity main screen)
+        io.to(roomCode).emit('game-started', {
           gameState: mainScreenGameState
         });
         
-        callback({ success: true });
+        // Send callback response if callback provided
+        if (callback && typeof callback === 'function') {
+          callback({ success: true });
+        }
       } else {
-        callback({ success: false, error: result.error });
+        console.error(`Failed to start game: ${result.error}`);
+        if (callback && typeof callback === 'function') {
+          callback({ success: false, error: result.error });
+        }
+        // Also emit error to room
+        io.to(roomCode).emit('game-error', { error: result.error });
       }
     } catch (error) {
       console.error('Error starting game:', error);
-      callback({ success: false, error: error.message });
+      if (callback && typeof callback === 'function') {
+        callback({ success: false, error: error.message });
+      }
+      // Try to emit error to room if we have roomCode
+      const roomCode = typeof data === 'string' ? data : data.roomCode;
+      if (roomCode) {
+        io.to(roomCode).emit('game-error', { error: error.message });
+      }
     }
   });
 
