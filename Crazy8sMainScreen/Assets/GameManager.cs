@@ -53,7 +53,7 @@ public class GameManager : MonoBehaviour
         ClearPlayersList();
         
         // Set initial room code text
-        roomCodeText.text = "Click 'Create Room' to start";
+        roomCodeText.text = "----";
         
         // Disable start game button initially (needs 2+ players)
         startGameButton.interactable = false;
@@ -162,7 +162,14 @@ public class GameManager : MonoBehaviour
             socket.On("player-joined", new Action<SocketIOResponse>(HandlePlayerJoined));
             socket.On("game-started", new Action<SocketIOResponse>(HandleGameStarted));
             socket.On("game-over", new Action<SocketIOResponse>(HandleGameOver));
+            socket.On("game-ended", new Action<SocketIOResponse>(HandleGameEnded));
             socket.On("room-error", new Action<SocketIOResponse>(HandleRoomError));
+            
+            // Game events - these update the main screen during gameplay
+            socket.On("card-played", new Action<SocketIOResponse>(HandleCardPlayed));
+            socket.On("card-drawn", new Action<SocketIOResponse>(HandleCardDrawn));
+            socket.On("game-state-updated", new Action<SocketIOResponse>(HandleGameStateUpdated));
+            socket.On("suit-chosen", new Action<SocketIOResponse>(HandleSuitChosen));
             
             socket.Connect();
             Debug.Log("Socket connection initiated...");
@@ -186,9 +193,43 @@ public class GameManager : MonoBehaviour
     void HandleGameStarted(SocketIOResponse response)
     {
         Debug.Log("Game started event received");
-        EnqueueMainThreadAction(delegate() {
-            ShowScreen("game");
-        });
+        
+        try
+        {
+            // Parse the game state from the response
+            string jsonString = response.GetValue().ToString();
+            Debug.Log("Game started JSON: " + jsonString);
+            
+            EnqueueMainThreadAction(delegate() {
+                ShowScreen("game");
+                
+                // Initialize game UI
+                if (currentPlayerText != null) currentPlayerText.text = "Waiting for game state...";
+                if (currentSuitText != null) currentSuitText.text = "Current Suit: --";
+                if (deckCountText != null) deckCountText.text = "Cards Left: --";
+                
+                Debug.Log("Switched to game screen and initialized UI");
+            });
+            
+            // Try to extract and update the initial game state
+            UpdateGameStateFromResponse(jsonString);
+        }
+        catch (Exception e)
+        {
+            Debug.LogError("Error parsing game started response: " + e.Message);
+            
+            // Fallback - just switch to game screen
+            EnqueueMainThreadAction(delegate() {
+                ShowScreen("game");
+                
+                // Initialize game UI
+                if (currentPlayerText != null) currentPlayerText.text = "Waiting for game state...";
+                if (currentSuitText != null) currentSuitText.text = "Current Suit: --";
+                if (deckCountText != null) deckCountText.text = "Cards Left: --";
+                
+                Debug.Log("Switched to game screen and initialized UI (fallback)");
+            });
+        }
     }
     
     void CreateRoom()
@@ -208,7 +249,7 @@ public class GameManager : MonoBehaviour
         {
             Debug.LogWarning("Socket not connected, using test room");
             // For testing without server
-            roomCode = "TEST123";
+            roomCode = "DISC";
             roomCodeText.text = "Room Code: " + roomCode;
         }
     }
@@ -230,7 +271,7 @@ public class GameManager : MonoBehaviour
                 Debug.LogWarning("Cannot start game - only " + players.Count + " players (need 2+)");
                 string currentRoom = roomCode;
                 EnqueueMainThreadAction(delegate() {
-                    roomCodeText.text = "Room Code: " + currentRoom + " - Need 2+ players to start";
+                    roomCodeText.text = currentRoom + " - Need 2+ players";
                 });
             }
         }
@@ -246,8 +287,16 @@ public class GameManager : MonoBehaviour
         roomCode = "";
         players.Clear();
         ClearPlayersList();
-        roomCodeText.text = "Click 'Create Room' to start";
+        roomCodeText.text = "----";
         startGameButton.interactable = false;
+        
+        // Show the create room button again
+        if (createRoomButton != null)
+        {
+            createRoomButton.gameObject.SetActive(true);
+            createRoomButton.interactable = true;
+            Debug.Log("Create Room button shown and enabled for restart");
+        }
     }
     
     void ClearPlayersList()
@@ -295,7 +344,7 @@ public class GameManager : MonoBehaviour
                     string newRoomCode = extractedRoomCode;
                     EnqueueMainThreadAction(delegate() {
                         roomCode = newRoomCode;
-                        roomCodeText.text = "Room Code: " + roomCode;
+                        roomCodeText.text = roomCode;
                         createRoomButton.interactable = true;
                         
                         // Hide the create room button after room is created
@@ -419,6 +468,313 @@ public class GameManager : MonoBehaviour
         catch (Exception e)
         {
             Debug.LogError("Error parsing room error: " + e.Message);
+        }
+    }
+    
+    void HandleGameEnded(SocketIOResponse response)
+    {
+        try
+        {
+            Debug.Log("Game ended event received");
+            string jsonString = response.GetValue().ToString();
+            Debug.Log("Game ended JSON: " + jsonString);
+            
+            string winner = ExtractJsonValue(jsonString, "winner");
+            
+            if (winner != null && winner != "")
+            {
+                string winnerName = winner;
+                EnqueueMainThreadAction(delegate() {
+                    if (winnerText != null) winnerText.text = winnerName + " Wins!";
+                    ShowScreen("game-over");
+                    Debug.Log("Game ended - winner: " + winnerName);
+                });
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogError("Error parsing game ended data: " + e.Message);
+        }
+    }
+    
+    void HandleCardPlayed(SocketIOResponse response)
+    {
+        try
+        {
+            Debug.Log("Card played event received");
+            string jsonString = response.GetValue().ToString();
+            Debug.Log("Card played JSON: " + jsonString);
+            
+            // Extract game state and update UI
+            UpdateGameStateFromResponse(jsonString);
+        }
+        catch (Exception e)
+        {
+            Debug.LogError("Error handling card played: " + e.Message);
+        }
+    }
+    
+    void HandleCardDrawn(SocketIOResponse response)
+    {
+        try
+        {
+            Debug.Log("Card drawn event received");
+            string jsonString = response.GetValue().ToString();
+            Debug.Log("Card drawn JSON: " + jsonString);
+            
+            // Extract game state and update UI
+            UpdateGameStateFromResponse(jsonString);
+        }
+        catch (Exception e)
+        {
+            Debug.LogError("Error handling card drawn: " + e.Message);
+        }
+    }
+    
+    void HandleGameStateUpdated(SocketIOResponse response)
+    {
+        try
+        {
+            Debug.Log("Game state updated event received");
+            string jsonString = response.GetValue().ToString();
+            Debug.Log("Game state JSON: " + jsonString);
+            
+            // This is the main screen game state update
+            UpdateGameStateFromResponse(jsonString);
+        }
+        catch (Exception e)
+        {
+            Debug.LogError("Error handling game state update: " + e.Message);
+        }
+    }
+    
+    void HandleSuitChosen(SocketIOResponse response)
+    {
+        try
+        {
+            Debug.Log("Suit chosen event received");
+            string jsonString = response.GetValue().ToString();
+            Debug.Log("Suit chosen JSON: " + jsonString);
+            
+            string suit = ExtractJsonValue(jsonString, "suit");
+            string playerName = ExtractJsonValue(jsonString, "playerName");
+            
+            EnqueueMainThreadAction(delegate() {
+                if (currentSuitText != null && suit != null && suit != "")
+                {
+                    currentSuitText.text = "Current Suit: " + suit;
+                    Debug.Log(playerName + " chose suit: " + suit);
+                }
+            });
+        }
+        catch (Exception e)
+        {
+            Debug.LogError("Error handling suit chosen: " + e.Message);
+        }
+    }
+    
+    void UpdateGameStateFromResponse(string jsonString)
+    {
+        try
+        {
+            Debug.Log("=== UpdateGameStateFromResponse ===");
+            Debug.Log("Raw JSON: " + jsonString);
+            
+            // Check if this is wrapped in a "gameState" object
+            string gameStateJson = ExtractGameStateJson(jsonString);
+            if (gameStateJson != "")
+            {
+                Debug.Log("Extracted gameState JSON: " + gameStateJson);
+                jsonString = gameStateJson; // Use the inner gameState
+            }
+            
+            // Extract current player - backend sends "currentPlayer", not "currentPlayerName"
+            string currentPlayer = ExtractJsonValue(jsonString, "currentPlayer");
+            
+            // Extract current card info
+            string currentCard = ExtractCurrentCardFromJson(jsonString);
+            string currentSuit = ExtractJsonValue(jsonString, "currentSuit");
+            
+            // Extract deck count
+            string deckCountStr = ExtractJsonValue(jsonString, "deckCount");
+            int deckCount = 0;
+            int.TryParse(deckCountStr, out deckCount);
+            
+            // Extract players and update
+            var players = ExtractPlayersFromGameState(jsonString);
+            
+            Debug.Log("Parsed values - Player: '" + currentPlayer + "', Suit: '" + currentSuit + "', Deck: " + deckCount + ", PlayersCount: " + (players != null ? players.Count : 0));
+            
+            EnqueueMainThreadAction(delegate() {
+                // Update current player
+                if (currentPlayerText != null && currentPlayer != null && currentPlayer != "")
+                {
+                    currentPlayerText.text = "Current Player: " + currentPlayer;
+                    Debug.Log("Updated current player text to: " + currentPlayer);
+                }
+                else
+                {
+                    Debug.LogWarning("Current player is empty or null: '" + currentPlayer + "'");
+                }
+                
+                // Update current suit
+                if (currentSuitText != null && currentSuit != null && currentSuit != "")
+                {
+                    currentSuitText.text = "Current Suit: " + currentSuit;
+                    Debug.Log("Updated current suit text to: " + currentSuit);
+                }
+                
+                // Update deck count
+                if (deckCountText != null)
+                {
+                    deckCountText.text = "Cards Left: " + deckCount;
+                    Debug.Log("Updated deck count text to: " + deckCount);
+                }
+                
+                // Update players list if we have players
+                if (players != null && players.Count > 0)
+                {
+                    UpdatePlayersList(players.ToArray());
+                    Debug.Log("Updated players list with " + players.Count + " players");
+                }
+                
+                Debug.Log("Game state updated - Player: " + currentPlayer + ", Suit: " + currentSuit + ", Deck: " + deckCount);
+            });
+        }
+        catch (Exception e)
+        {
+            Debug.LogError("Error updating game state from response: " + e.Message);
+            Debug.LogError("Stack trace: " + e.StackTrace);
+        }
+    }
+    
+    string ExtractGameStateJson(string json)
+    {
+        try
+        {
+            // Look for "gameState":{...} pattern
+            string pattern = "\"gameState\":{";
+            int startIdx = json.IndexOf(pattern);
+            if (startIdx == -1) 
+            {
+                Debug.Log("No gameState wrapper found, using JSON as-is");
+                return ""; // No gameState wrapper
+            }
+            
+            startIdx += pattern.Length - 1; // Include the opening brace
+            
+            // Find the matching closing brace
+            int braceCount = 1;
+            int endIdx = startIdx + 1;
+            
+            while (endIdx < json.Length && braceCount > 0)
+            {
+                if (json[endIdx] == '{') braceCount++;
+                else if (json[endIdx] == '}') braceCount--;
+                endIdx++;
+            }
+            
+            if (braceCount == 0)
+            {
+                string gameStateJson = json.Substring(startIdx, endIdx - startIdx);
+                Debug.Log("Extracted gameState object: " + gameStateJson);
+                return gameStateJson;
+            }
+            else
+            {
+                Debug.LogError("Malformed gameState JSON - unmatched braces");
+                return "";
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogError("Error extracting gameState JSON: " + e.Message);
+            return "";
+        }
+    }
+    
+    string ExtractCurrentCardFromJson(string json)
+    {
+        try
+        {
+            // Look for "topCard" object and extract rank and suit
+            string topCardPattern = "\"topCard\":{";
+            int startIdx = json.IndexOf(topCardPattern);
+            if (startIdx == -1) return "";
+            
+            int endIdx = json.IndexOf("}", startIdx);
+            if (endIdx == -1) return "";
+            
+            string topCardJson = json.Substring(startIdx, endIdx - startIdx + 1);
+            
+            string rank = ExtractJsonValue(topCardJson, "rank");
+            string suit = ExtractJsonValue(topCardJson, "suit");
+            
+            if (rank != "" && suit != "")
+            {
+                return rank + " of " + suit;
+            }
+            
+            return "";
+        }
+        catch (Exception e)
+        {
+            Debug.LogError("Error extracting current card: " + e.Message);
+            return "";
+        }
+    }
+    
+    List<PlayerData> ExtractPlayersFromGameState(string json)
+    {
+        List<PlayerData> playersList = new List<PlayerData>();
+        
+        try
+        {
+            // Look for "players" array in the gameState
+            string playersPattern = "\"players\":[";
+            int startIdx = json.IndexOf(playersPattern);
+            
+            if (startIdx == -1)
+            {
+                Debug.Log("No players array found in game state JSON");
+                return playersList;
+            }
+            
+            startIdx += playersPattern.Length;
+            int endIdx = json.IndexOf(']', startIdx);
+            if (endIdx == -1) return playersList;
+            
+            string playersContent = json.Substring(startIdx, endIdx - startIdx);
+            
+            if (string.IsNullOrWhiteSpace(playersContent))
+            {
+                return playersList;
+            }
+            
+            string[] playerStrings = playersContent.Split(new string[] { "},{" }, StringSplitOptions.RemoveEmptyEntries);
+            
+            foreach (string playerStr in playerStrings)
+            {
+                string cleanStr = playerStr.Trim('{', '}', ' ');
+                
+                string name = ExtractJsonValue(cleanStr, "name");
+                string cardCountStr = ExtractJsonValue(cleanStr, "cardCount");
+                
+                int cardCount = 0;
+                int.TryParse(cardCountStr, out cardCount);
+                
+                if (!string.IsNullOrEmpty(name))
+                {
+                    playersList.Add(new PlayerData { name = name, cardCount = cardCount });
+                }
+            }
+            
+            return playersList;
+        }
+        catch (Exception e)
+        {
+            Debug.LogError("Error extracting players from game state: " + e.Message);
+            return playersList;
         }
     }
     
@@ -745,7 +1101,7 @@ public class GameManager : MonoBehaviour
             if (nameText != null)
             {
                 string playerName = (player.name == null || player.name == "") ? "Unknown" : player.name;
-                nameText.text = playerName + " (" + player.cardCount + " cards)";
+                nameText.text = playerName;
                 Debug.Log("Player card text set to: " + nameText.text);
                 Debug.Log("Text component active: " + nameText.gameObject.activeInHierarchy);
                 Debug.Log("Text component enabled: " + nameText.enabled);
