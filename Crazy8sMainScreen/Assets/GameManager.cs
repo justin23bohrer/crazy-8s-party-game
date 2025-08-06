@@ -295,6 +295,14 @@ public class GameManager : MonoBehaviour
         roomCode = "";
         players.Clear();
         ClearPlayersList();
+        
+        // Clear player position displays when going back to lobby
+        if (playerPositionManager != null)
+        {
+            playerPositionManager.ClearPlayerDisplays();
+            Debug.Log("Cleared player position displays for lobby return");
+        }
+        
         roomCodeText.text = "----";
         startGameButton.interactable = false;
         
@@ -396,34 +404,29 @@ public class GameManager : MonoBehaviour
     {
         try 
         {
-            Debug.Log("=== PLAYER JOINED EVENT ===");
+            Debug.Log("======= PLAYER JOINED EVENT =======");
             
             // Get the raw JSON string
             string jsonString = response.GetValue().ToString();
-            Debug.Log("Raw JSON: " + jsonString);
+            // Debug.Log("Raw JSON: " + jsonString);
             
             // Extract players array more simply
             var players = ExtractPlayersSimple(jsonString);
             
             if (players != null && players.Count > 0)
             {
-                Debug.Log("Found " + players.Count + " players");
+                Debug.Log("PLAYER JOINED: Found " + players.Count + " players, calling UpdatePlayersList");
                 
                 PlayerData[] playersArray = players.ToArray();
-                Debug.Log("About to enqueue main thread action for UpdatePlayersList");
                 
                 EnqueueMainThreadAction(() => {
-                    Debug.Log("Main thread action executing - calling UpdatePlayersList");
                     UpdatePlayersList(playersArray);
-                    Debug.Log("UpdatePlayersList completed - starting delayed refresh");
-                    StartCoroutine(RefreshUIDelayed());
+                    // StartCoroutine(RefreshUIDelayed());
                 });
-                
-                Debug.Log("Main thread action enqueued successfully");
             }
             else
             {
-                Debug.LogError("No players found in response");
+                Debug.LogError("PLAYER JOINED: No players found in response");
             }
         }
         catch (Exception e)
@@ -585,14 +588,14 @@ public class GameManager : MonoBehaviour
     {
         try
         {
-            Debug.Log("=== UpdateGameStateFromResponse ===");
-            Debug.Log("Raw JSON: " + jsonString);
+            // Debug.Log("=== UpdateGameStateFromResponse ===");
+            // Debug.Log("Raw JSON: " + jsonString);
             
             // Check if this is wrapped in a "gameState" object
             string gameStateJson = ExtractGameStateJson(jsonString);
             if (gameStateJson != "")
             {
-                Debug.Log("Extracted gameState JSON: " + gameStateJson);
+                // Debug.Log("Extracted gameState JSON: " + gameStateJson);
                 jsonString = gameStateJson; // Use the inner gameState
             }
             
@@ -611,14 +614,14 @@ public class GameManager : MonoBehaviour
             // Extract players and update
             var players = ExtractPlayersFromGameState(jsonString);
             
-            Debug.Log("Parsed values - Player: '" + currentPlayer + "', Suit: '" + currentSuit + "', Deck: " + deckCount + ", PlayersCount: " + (players != null ? players.Count : 0));
+            Debug.Log("GAME STATE UPDATE: Player: '" + currentPlayer + "', Players found: " + (players != null ? players.Count : 0));
             
             EnqueueMainThreadAction(delegate() {
                 // Update current player
                 if (currentPlayerText != null && currentPlayer != null && currentPlayer != "")
                 {
                     currentPlayerText.text = "Current Player: " + currentPlayer;
-                    Debug.Log("Updated current player text to: " + currentPlayer);
+                    // Debug.Log("Updated current player text to: " + currentPlayer);
                     
                     // Highlight current player in the position manager
                     if (playerPositionManager != null)
@@ -628,14 +631,14 @@ public class GameManager : MonoBehaviour
                 }
                 else
                 {
-                    Debug.LogWarning("Current player is empty or null: '" + currentPlayer + "'");
+                    // Debug.LogWarning("Current player is empty or null: '" + currentPlayer + "'");
                 }
                 
                 // Update current suit
                 if (currentSuitText != null && currentSuit != null && currentSuit != "")
                 {
                     currentSuitText.text = "Current Suit: " + currentSuit;
-                    Debug.Log("Updated current suit text to: " + currentSuit);
+                    // Debug.Log("Updated current suit text to: " + currentSuit);
                 }
                 
                 // Update top card display
@@ -644,24 +647,28 @@ public class GameManager : MonoBehaviour
                     // Call the UpdateTopCard method to properly update the card display
                     UpdateTopCard(currentCard);
                     topCardImage.gameObject.SetActive(true);
-                    Debug.Log("Updated top card to: " + currentCard);
+                    // Debug.Log("Updated top card to: " + currentCard);
                 }
                 
                 // Update deck count
                 if (deckCountText != null)
                 {
                     deckCountText.text = "Cards Left: " + deckCount;
-                    Debug.Log("Updated deck count text to: " + deckCount);
+                    // Debug.Log("Updated deck count text to: " + deckCount);
                 }
                 
                 // Update players list if we have players
                 if (players != null && players.Count > 0)
                 {
+                    Debug.Log("CALLING UpdatePlayersList from game state update with " + players.Count + " players");
                     UpdatePlayersList(players.ToArray());
-                    Debug.Log("Updated players list with " + players.Count + " players");
+                }
+                else
+                {
+                    Debug.LogWarning("No players found in game state update!");
                 }
                 
-                Debug.Log("Game state updated - Player: " + currentPlayer + ", Suit: " + currentSuit + ", Deck: " + deckCount);
+                // Debug.Log("Game state updated - Player: " + currentPlayer + ", Suit: " + currentSuit + ", Deck: " + deckCount);
             });
         }
         catch (Exception e)
@@ -991,6 +998,13 @@ public class GameManager : MonoBehaviour
     {
         Debug.Log("Showing screen: " + screenName);
         
+        // Clear player displays when switching away from game screen
+        if (screenName != "game" && playerPositionManager != null)
+        {
+            playerPositionManager.ClearPlayerDisplays();
+            Debug.Log("Cleared player displays when switching to " + screenName);
+        }
+        
         // Hide all screens
         if (lobbyScreen != null) lobbyScreen.SetActive(false);
         if (gameScreen != null) gameScreen.SetActive(false);
@@ -1013,8 +1027,8 @@ public class GameManager : MonoBehaviour
     
     void UpdatePlayersList(PlayerData[] newPlayers)
     {
-        Debug.Log("=== UpdatePlayersList called ===");
-        Debug.Log("Updating players list with " + newPlayers.Length + " players");
+        Debug.Log("======= PLAYER DISPLAY DEBUG START =======");
+        Debug.Log("UpdatePlayersList called with " + newPlayers.Length + " players");
         
         // Limit to max 4 players
         int maxPlayers = Mathf.Min(newPlayers.Length, 4);
@@ -1031,14 +1045,26 @@ public class GameManager : MonoBehaviour
         players.Clear();
         players.AddRange(limitedPlayers);
         
-        // Use PlayerPositionManager for game screen
-        if (playerPositionManager != null)
+        // Check PlayerPositionManager assignment
+        Debug.Log("PlayerPositionManager assigned: " + (playerPositionManager != null));
+        
+        // Use PlayerPositionManager ONLY when game screen is active
+        if (gameScreen != null && gameScreen.activeInHierarchy)
         {
-            playerPositionManager.UpdatePlayersDisplay(limitedPlayers);
+            if (playerPositionManager != null)
+            {
+                Debug.Log("Game screen is active - Calling PlayerPositionManager.UpdatePlayersDisplay...");
+                playerPositionManager.UpdatePlayersDisplay(limitedPlayers);
+                Debug.Log("PlayerPositionManager.UpdatePlayersDisplay completed");
+            }
+            else
+            {
+                Debug.LogError("CRITICAL: PlayerPositionManager is null! Please assign it in the Inspector.");
+            }
         }
         else
         {
-            Debug.LogError("PlayerPositionManager is null! Please assign it in the Inspector.");
+            Debug.Log("Game screen not active - skipping PlayerPositionManager.UpdatePlayersDisplay");
         }
         
         // Still update lobby screen for compatibility
@@ -1049,21 +1075,23 @@ public class GameManager : MonoBehaviour
         {
             bool canStart = limitedPlayers.Length >= 2 && limitedPlayers.Length <= 4;
             startGameButton.interactable = canStart;
-            Debug.Log("Start game button enabled: " + canStart + " (players: " + limitedPlayers.Length + "/2-4 required)");
+            // Debug.Log("Start game button enabled: " + canStart + " (players: " + limitedPlayers.Length + "/2-4 required)");
             
             if (limitedPlayers.Length < 2)
             {
-                Debug.Log("Need " + (2 - limitedPlayers.Length) + " more players to start the game");
+                // Debug.Log("Need " + (2 - limitedPlayers.Length) + " more players to start the game");
             }
             else if (limitedPlayers.Length > 4)
             {
-                Debug.Log("Too many players (" + limitedPlayers.Length + "/4 max)");
+                // Debug.Log("Too many players (" + limitedPlayers.Length + "/4 max)");
             }
         }
         else
         {
             Debug.LogError("StartGameButton is null!");
         }
+        
+        Debug.Log("======= PLAYER DISPLAY DEBUG END =======");
     }
     
     void UpdateLobbyPlayersList(PlayerData[] newPlayers)
