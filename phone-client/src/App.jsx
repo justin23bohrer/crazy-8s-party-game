@@ -46,14 +46,16 @@ function App() {
       setError(null);
       const response = await socketService.joinRoom(joinData.roomCode, joinData.playerName);
       
-      // Set game data and mark as connected
+      // Set game data and mark as connected - include isFirstPlayer from server response
       setGameData({
         ...joinData,
-        socketId: socketService.getSocketId()
+        socketId: socketService.getSocketId(),
+        isFirstPlayer: response.isFirstPlayer || false // Add the first player flag from server
       });
       setIsConnected(true);
       
       console.log('Joined game:', response);
+      console.log('Is first player:', response.isFirstPlayer);
     } catch (error) {
       console.error('Failed to join game:', error);
       setError(error.message);

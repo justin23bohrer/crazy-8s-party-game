@@ -90,13 +90,15 @@ io.on('connection', (socket) => {
         // Notify all clients in room about new player
         io.to(roomCode).emit('player-joined', {
           playerName: result.player.name,
+          isFirstPlayer: result.player.isFirstPlayer,
           players: Array.from(roomManager.rooms.get(roomCode).players.values()).map(p => ({
             name: p.name,
-            cardCount: p.cardCount || 0
+            cardCount: p.cardCount || 0,
+            isFirstPlayer: p.isFirstPlayer || false
           }))
         });
         
-        callback({ success: true, roomData: result.roomData });
+        callback({ success: true, roomData: result.roomData, isFirstPlayer: result.player.isFirstPlayer });
       } else {
         callback({ success: false, error: result.error });
       }

@@ -13,6 +13,15 @@ function GameScreen({ gameData, onLeave, socketService }) {
   const [message, setMessage] = useState('');
   const [showSuitSelector, setShowSuitSelector] = useState(false);
   const [pendingEight, setPendingEight] = useState(null);
+  const [isFirstPlayer, setIsFirstPlayer] = useState(false);
+
+  useEffect(() => {
+    // Check if this player is the first player based on gameData
+    if (gameData && gameData.isFirstPlayer) {
+      setIsFirstPlayer(true);
+      console.log('This player is the first player - can start the game');
+    }
+  }, [gameData]);
 
   useEffect(() => {
     // Set up WebSocket event listeners for Crazy 8s
@@ -192,6 +201,20 @@ function GameScreen({ gameData, onLeave, socketService }) {
     }
   };
 
+  const startGame = async () => {
+    try {
+      console.log('Starting game from phone client');
+      setError(null);
+      
+      // Use emitGameAction to send to server, not the internal emit
+      socketService.emitGameAction('start-game', { roomCode: gameData.roomCode });
+      console.log('Sent start-game event to server with roomCode:', gameData.roomCode);
+    } catch (error) {
+      console.error('Failed to start game:', error);
+      setError('Failed to start game: ' + error.message);
+    }
+  };
+
   const formatCard = (card) => {
     if (!card) return '';
     return `${card.rank}${getSuitSymbol(card.suit)}`;
@@ -233,7 +256,19 @@ function GameScreen({ gameData, onLeave, socketService }) {
             <span>.</span>
             <span>.</span>
           </div>
-          <p>Waiting for host to start Crazy 8s...</p>
+          {isFirstPlayer ? (
+            <div className="first-player-controls">
+              <p>👑 You are the first player!</p>
+              <button 
+                className="start-game-btn"
+                onClick={startGame}
+              >
+                Start Game
+              </button>
+            </div>
+          ) : (
+            <p>Waiting for first player to start Crazy 8s...</p>
+          )}
         </div>
       </div>
     </div>

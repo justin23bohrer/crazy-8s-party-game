@@ -4,18 +4,22 @@ using TMPro;
 using SocketIOClient;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 public class GameManager : MonoBehaviour
 {
     [Header("Screens")]
+    public GameObject startScreen;
     public GameObject lobbyScreen;
     public GameObject gameScreen;
     public GameObject gameOverScreen;
     
+    [Header("Start Screen UI")]
+    public Button startScreenButton;
+    
     [Header("Lobby UI")]
     public TextMeshProUGUI roomCodeText;
-    public Button createRoomButton;
-    public Button startGameButton;
+    public TextMeshProUGUI waitingText;
     public Transform playersContainer;
     public GameObject playerCardPrefab;
     
@@ -36,38 +40,156 @@ public class GameManager : MonoBehaviour
     private SocketIOUnity socket;
     private string roomCode;
     private List<PlayerData> players = new List<PlayerData>();
+    private bool isFirstPlayer = false;
     
     // Queue for main thread actions
     private Queue<System.Action> mainThreadActions = new Queue<System.Action>();
     
     void Start()
     {
+        Debug.Log("=== GAMEMANAGER START() BEGIN ===");
+        
         // Check if all references are assigned
-        if (!ValidateReferences())
+        bool validationPassed = ValidateReferences();
+        if (!validationPassed)
         {
-            Debug.LogError("Some UI references are missing! Please assign them in the Inspector.");
-            return;
+            Debug.LogWarning("Some UI references are missing, but continuing with available components...");
+        }
+        else
+        {
+            Debug.Log("All references validated successfully");
         }
         
         // Clear any existing player cards from previous sessions
         ClearPlayersList();
         
         // Set initial room code text
-        roomCodeText.text = "----";
+        if (roomCodeText != null)
+        {
+            roomCodeText.text = "----";
+        }
         
-        // Disable start game button initially (needs 2+ players)
-        startGameButton.interactable = false;
+        // Set up button events with debugging
+        Debug.Log("Setting up button listeners...");
         
-        // Set up button events
-        createRoomButton.onClick.AddListener(CreateRoom);
-        startGameButton.onClick.AddListener(StartGame);
-        playAgainButton.onClick.AddListener(RestartGame);
+        if (startScreenButton != null)
+        {
+            Debug.Log("StartScreenButton found, adding OnStartButtonClicked listener");
+            startScreenButton.onClick.AddListener(() => {
+                Debug.Log("*** START BUTTON CLICK DETECTED ***");
+                OnStartButtonClicked();
+            });
+            Debug.Log("StartScreenButton listener added successfully");
+            
+            // Fix Canvas Group blocking issue - ALWAYS call this
+            FixCanvasGroupBlocking();
+        }
+        else
+        {
+            Debug.LogError("CRITICAL: StartScreenButton is NULL!");
+        }
         
-        // Show lobby screen initially
-        ShowScreen("lobby");
+        if (playAgainButton != null)
+        {
+            Debug.Log("PlayAgainButton found, adding RestartGame listener");
+            playAgainButton.onClick.AddListener(RestartGame);
+        }
+        else
+        {
+            Debug.LogError("PlayAgainButton is NULL!");
+        }
+        
+        Debug.Log("Button listeners setup complete");
+        
+        // Show start screen initially
+        Debug.Log("Showing start screen...");
+        ShowScreen("start");
         
         // Initialize socket connection
+        Debug.Log("Initializing socket connection...");
         ConnectToServer();
+        
+        Debug.Log("=== GAMEMANAGER START() COMPLETE ===");
+    }
+    
+    void FixCanvasGroupBlocking()
+    {
+        Debug.Log("=== FIXING CANVAS GROUP BLOCKING ===");
+        
+        if (startScreenButton != null)
+        {
+            // Check for Canvas Group on the button itself
+            CanvasGroup buttonCanvasGroup = startScreenButton.GetComponent<CanvasGroup>();
+            if (buttonCanvasGroup != null)
+            {
+                Debug.Log("Found CanvasGroup on button - setting interactable to true");
+                buttonCanvasGroup.interactable = true;
+                buttonCanvasGroup.blocksRaycasts = true;
+                buttonCanvasGroup.alpha = 1f;
+            }
+            else
+            {
+                Debug.Log("No CanvasGroup found directly on button");
+            }
+            
+            // Check for Canvas Group on parent objects and fix ALL of them
+            Transform current = startScreenButton.transform;
+            int parentLevel = 0;
+            while (current != null && parentLevel < 10) // Prevent infinite loop
+            {
+                CanvasGroup parentCanvasGroup = current.GetComponent<CanvasGroup>();
+                if (parentCanvasGroup != null)
+                {
+                    Debug.Log($"Found CanvasGroup on {current.name} (level {parentLevel}) - enabling interaction");
+                    Debug.Log($"  Before: interactable={parentCanvasGroup.interactable}, blocksRaycasts={parentCanvasGroup.blocksRaycasts}, alpha={parentCanvasGroup.alpha}");
+                    
+                    parentCanvasGroup.interactable = true;
+                    parentCanvasGroup.blocksRaycasts = true;
+                    parentCanvasGroup.alpha = 1f;
+                    
+                    Debug.Log($"  After: interactable={parentCanvasGroup.interactable}, blocksRaycasts={parentCanvasGroup.blocksRaycasts}, alpha={parentCanvasGroup.alpha}");
+                }
+                current = current.parent;
+                parentLevel++;
+            }
+            
+            // Also check the start screen itself
+            if (startScreen != null)
+            {
+                CanvasGroup screenCanvasGroup = startScreen.GetComponent<CanvasGroup>();
+                if (screenCanvasGroup != null)
+                {
+                    Debug.Log("Found CanvasGroup on StartScreen - enabling interaction");
+                    Debug.Log($"  Before: interactable={screenCanvasGroup.interactable}, blocksRaycasts={screenCanvasGroup.blocksRaycasts}, alpha={screenCanvasGroup.alpha}");
+                    
+                    screenCanvasGroup.interactable = true;
+                    screenCanvasGroup.blocksRaycasts = true;
+                    screenCanvasGroup.alpha = 1f;
+                    
+                    Debug.Log($"  After: interactable={screenCanvasGroup.interactable}, blocksRaycasts={screenCanvasGroup.blocksRaycasts}, alpha={screenCanvasGroup.alpha}");
+                }
+                else
+                {
+                    Debug.Log("No CanvasGroup found on StartScreen");
+                }
+                
+                // Check all child Canvas Groups in the start screen
+                CanvasGroup[] allCanvasGroups = startScreen.GetComponentsInChildren<CanvasGroup>();
+                Debug.Log($"Found {allCanvasGroups.Length} CanvasGroups in StartScreen hierarchy");
+                
+                for (int i = 0; i < allCanvasGroups.Length; i++)
+                {
+                    CanvasGroup cg = allCanvasGroups[i];
+                    Debug.Log($"  CanvasGroup {i} on {cg.name}: interactable={cg.interactable}, blocksRaycasts={cg.blocksRaycasts}");
+                    cg.interactable = true;
+                    cg.blocksRaycasts = true;
+                    cg.alpha = 1f;
+                    Debug.Log($"    Fixed to: interactable={cg.interactable}, blocksRaycasts={cg.blocksRaycasts}");
+                }
+            }
+        }
+        
+        Debug.Log("=== CANVAS GROUP FIX COMPLETE ===");
     }
     
     void OnDestroy()
@@ -116,6 +238,29 @@ public class GameManager : MonoBehaviour
                 }
             }
         }
+        
+        // Debug button state every few seconds when on start screen
+        if (startScreen != null && startScreen.activeInHierarchy && startScreenButton != null)
+        {
+            if (Time.time % 3f < 0.02f) // Every 3 seconds approximately
+            {
+                Debug.Log("=== START BUTTON STATUS CHECK ===");
+                Debug.Log("Button active: " + startScreenButton.gameObject.activeInHierarchy);
+                Debug.Log("Button interactable: " + startScreenButton.interactable);
+                Debug.Log("Button enabled: " + startScreenButton.enabled);
+                
+                CanvasGroup blockingGroup = startScreenButton.GetComponentInParent<CanvasGroup>();
+                bool isBlocked = blockingGroup != null && !blockingGroup.interactable;
+                Debug.Log("Canvas Group blocking: " + isBlocked);
+                
+                // If still blocked, try to fix it again
+                if (isBlocked)
+                {
+                    Debug.Log("Canvas Group still blocking - attempting fix...");
+                    FixCanvasGroupBlocking();
+                }
+            }
+        }
     }
     
     private void EnqueueMainThreadAction(System.Action action)
@@ -133,15 +278,66 @@ public class GameManager : MonoBehaviour
     {
         bool valid = true;
         
-        if (lobbyScreen == null) { Debug.LogError("LobbyScreen is not assigned!"); valid = false; }
-        if (gameScreen == null) { Debug.LogError("GameScreen is not assigned!"); valid = false; }
-        if (gameOverScreen == null) { Debug.LogError("GameOverScreen is not assigned!"); valid = false; }
-        if (roomCodeText == null) { Debug.LogError("RoomCodeText is not assigned!"); valid = false; }
-        if (createRoomButton == null) { Debug.LogError("CreateRoomButton is not assigned!"); valid = false; }
-        if (startGameButton == null) { Debug.LogError("StartGameButton is not assigned!"); valid = false; }
-        if (playersContainer == null) { Debug.LogError("PlayersContainer is not assigned!"); valid = false; }
-        if (playerCardPrefab == null) { Debug.LogError("PlayerCardPrefab is not assigned!"); valid = false; }
+        Debug.Log("=== VALIDATING REFERENCES ===");
         
+        // Screen references
+        if (startScreen == null) { Debug.LogError("StartScreen is not assigned!"); valid = false; }
+        else { Debug.Log("✓ StartScreen assigned"); }
+        
+        if (lobbyScreen == null) { Debug.LogError("LobbyScreen is not assigned!"); valid = false; }
+        else { Debug.Log("✓ LobbyScreen assigned"); }
+        
+        if (gameScreen == null) { Debug.LogError("GameScreen is not assigned!"); valid = false; }
+        else { Debug.Log("✓ GameScreen assigned"); }
+        
+        if (gameOverScreen == null) { Debug.LogError("GameOverScreen is not assigned!"); valid = false; }
+        else { Debug.Log("✓ GameOverScreen assigned"); }
+        
+        // Start screen UI
+        if (startScreenButton == null) { Debug.LogError("StartScreenButton is not assigned!"); valid = false; }
+        else { 
+            Debug.Log("✓ StartScreenButton assigned"); 
+            Debug.Log("StartScreenButton interactable: " + startScreenButton.interactable);
+            Debug.Log("StartScreenButton gameObject active: " + startScreenButton.gameObject.activeInHierarchy);
+        }
+        
+        // Lobby UI  
+        if (roomCodeText == null) { Debug.LogError("RoomCodeText is not assigned!"); valid = false; }
+        else { Debug.Log("✓ RoomCodeText assigned"); }
+        
+        if (waitingText == null) { Debug.LogError("WaitingText is not assigned!"); valid = false; }
+        else { Debug.Log("✓ WaitingText assigned"); }
+        
+        if (playersContainer == null) { Debug.LogError("PlayersContainer is not assigned!"); valid = false; }
+        else { Debug.Log("✓ PlayersContainer assigned"); }
+        
+        if (playerCardPrefab == null) { Debug.LogError("PlayerCardPrefab is not assigned!"); valid = false; }
+        else { Debug.Log("✓ PlayerCardPrefab assigned"); }
+        
+        // Game UI
+        if (currentPlayerText == null) { Debug.LogError("CurrentPlayerText is not assigned!"); valid = false; }
+        else { Debug.Log("✓ CurrentPlayerText assigned"); }
+        
+        if (currentSuitText == null) { Debug.LogError("CurrentSuitText is not assigned!"); valid = false; }
+        else { Debug.Log("✓ CurrentSuitText assigned"); }
+        
+        if (deckCountText == null) { Debug.LogError("DeckCountText is not assigned!"); valid = false; }
+        else { Debug.Log("✓ DeckCountText assigned"); }
+        
+        if (topCardImage == null) { Debug.LogError("TopCardImage is not assigned!"); valid = false; }
+        else { Debug.Log("✓ TopCardImage assigned"); }
+        
+        if (playerPositionManager == null) { Debug.LogError("PlayerPositionManager is not assigned!"); valid = false; }
+        else { Debug.Log("✓ PlayerPositionManager assigned"); }
+        
+        // Game Over UI
+        if (winnerText == null) { Debug.LogError("WinnerText is not assigned!"); valid = false; }
+        else { Debug.Log("✓ WinnerText assigned"); }
+        
+        if (playAgainButton == null) { Debug.LogError("PlayAgainButton is not assigned!"); valid = false; }
+        else { Debug.Log("✓ PlayAgainButton assigned"); }
+        
+        Debug.Log("=== VALIDATION COMPLETE - Valid: " + valid + " ===");
         return valid;
     }
     
@@ -232,61 +428,50 @@ public class GameManager : MonoBehaviour
         }
     }
     
-    void CreateRoom()
+    void OnStartButtonClicked()
     {
-        Debug.Log("Create Room button clicked");
+        Debug.Log("=== START BUTTON CLICKED ===");
+        Debug.Log("Socket connected: " + (socket != null && socket.Connected));
+        Debug.Log("Socket is null: " + (socket == null));
         
         if (socket != null && socket.Connected)
         {
             Debug.Log("Sending create-room event to server");
             socket.Emit("create-room");
             
+            // Transition to lobby screen
+            ShowScreen("lobby");
+            
             // Update UI to show we're creating
             roomCodeText.text = "Creating room...";
-            createRoomButton.interactable = false;
         }
         else
         {
-            Debug.LogWarning("Socket not connected, using test room");
-            // For testing without server
-            roomCode = "DISC";
+            Debug.LogWarning("Socket not connected, attempting to connect first...");
+            
+            // Try to connect first
+            ConnectToServer();
+            
+            // For testing without server - create test room immediately  
+            roomCode = "TEST";
             roomCodeText.text = "Room Code: " + roomCode;
+            ShowScreen("lobby");
         }
     }
     
-    void StartGame()
+    // Manual test method - you can call this from the Inspector or add a key press
+    [System.Obsolete("Debug method only")]
+    public void TestStartButtonManually()
     {
-        Debug.Log("Start Game clicked - Players: " + players.Count + ", Room: " + roomCode);
-        
-        if (socket != null && socket.Connected && roomCode != null && roomCode != "")
-        {
-            if (players.Count >= 2 && players.Count <= 4)
-            {
-                Debug.Log("Starting game with " + players.Count + " players");
-                // Send just the room code as data - no callback needed
-                socket.Emit("start-game", new { roomCode = roomCode });
-            }
-            else if (players.Count > 4)
-            {
-                Debug.LogWarning("Cannot start game - too many players (" + players.Count + "/4 max)");
-                string currentRoom = roomCode;
-                EnqueueMainThreadAction(delegate() {
-                    roomCodeText.text = currentRoom + " - Max 4 players";
-                });
-            }
-            else
-            {
-                Debug.LogWarning("Cannot start game - only " + players.Count + " players (need 2+)");
-                string currentRoom = roomCode;
-                EnqueueMainThreadAction(delegate() {
-                    roomCodeText.text = currentRoom + " - Need 2+ players";
-                });
-            }
-        }
-        else
-        {
-            Debug.LogWarning("Socket not connected or no room code");
-        }
+        Debug.Log("=== MANUAL START BUTTON TEST ===");
+        OnStartButtonClicked();
+    }
+    
+    // Force fix Canvas Groups - can be called from Inspector
+    public void ForceFixCanvasGroups()
+    {
+        Debug.Log("=== FORCE FIXING CANVAS GROUPS ===");
+        FixCanvasGroupBlocking();
     }
     
     void RestartGame()
@@ -304,15 +489,6 @@ public class GameManager : MonoBehaviour
         }
         
         roomCodeText.text = "----";
-        startGameButton.interactable = false;
-        
-        // Show the create room button again
-        if (createRoomButton != null)
-        {
-            createRoomButton.gameObject.SetActive(true);
-            createRoomButton.interactable = true;
-            Debug.Log("Create Room button shown and enabled for restart");
-        }
     }
     
     void ClearPlayersList()
@@ -361,12 +537,8 @@ public class GameManager : MonoBehaviour
                     EnqueueMainThreadAction(delegate() {
                         roomCode = newRoomCode;
                         roomCodeText.text = roomCode;
-                        createRoomButton.interactable = true;
                         
-                        // Hide the create room button after room is created
-                        createRoomButton.gameObject.SetActive(false);
-                        Debug.Log("Create Room button hidden - room already created");
-                        
+                        Debug.Log("Room created successfully, waiting for players to join via phone");
                         Debug.Log("UI updated with room code: " + roomCode);
                     });
                 }
@@ -375,7 +547,6 @@ public class GameManager : MonoBehaviour
                     Debug.LogError("Could not extract room code from response");
                     EnqueueMainThreadAction(delegate() {
                         roomCodeText.text = "Error creating room. Try again.";
-                        createRoomButton.interactable = true;
                     });
                 }
             }
@@ -384,7 +555,6 @@ public class GameManager : MonoBehaviour
                 Debug.LogError("Error getting value from response: " + parseEx.Message);
                 EnqueueMainThreadAction(delegate() {
                     roomCodeText.text = "Error creating room. Try again.";
-                    createRoomButton.interactable = true;
                 });
             }
         }
@@ -395,7 +565,6 @@ public class GameManager : MonoBehaviour
             
             EnqueueMainThreadAction(delegate() {
                 roomCodeText.text = "Error creating room. Try again.";
-                createRoomButton.interactable = true;
             });
         }
     }
@@ -417,10 +586,31 @@ public class GameManager : MonoBehaviour
             {
                 Debug.Log("PLAYER JOINED: Found " + players.Count + " players, calling UpdatePlayersList");
                 
+                // Check if this is the first player joining
+                if (players.Count == 1 && !isFirstPlayer)
+                {
+                    isFirstPlayer = true;
+                    Debug.Log("FIRST PLAYER JOINED: Granting start permissions");
+                }
+                
                 PlayerData[] playersArray = players.ToArray();
                 
                 EnqueueMainThreadAction(() => {
                     UpdatePlayersList(playersArray);
+                    
+                    // Update waiting text based on first player
+                    if (waitingText != null)
+                    {
+                        var firstPlayer = players.FirstOrDefault(p => p.isFirstPlayer);
+                        if (firstPlayer != null)
+                        {
+                            waitingText.text = $"Waiting for {firstPlayer.name} to start the game...";
+                        }
+                        else
+                        {
+                            waitingText.text = "Waiting for first player to start the game...";
+                        }
+                    }
                     // StartCoroutine(RefreshUIDelayed());
                 });
             }
@@ -473,7 +663,6 @@ public class GameManager : MonoBehaviour
             
             EnqueueMainThreadAction(delegate() {
                 roomCodeText.text = "Error creating room. Try again.";
-                createRoomButton.interactable = true;
             });
         }
         catch (Exception e)
@@ -887,14 +1076,18 @@ public class GameManager : MonoBehaviour
                 // Extract name
                 string name = ExtractJsonValue(cleanStr, "name");
                 string cardCountStr = ExtractJsonValue(cleanStr, "cardCount");
+                string isFirstPlayerStr = ExtractJsonValue(cleanStr, "isFirstPlayer");
                 
                 int cardCount = 0;
                 int.TryParse(cardCountStr, out cardCount);
                 
+                bool isFirstPlayer = false;
+                bool.TryParse(isFirstPlayerStr, out isFirstPlayer);
+                
                 if (!string.IsNullOrEmpty(name))
                 {
-                    playersList.Add(new PlayerData { name = name, cardCount = cardCount });
-                    Debug.Log("✓ Added player: " + name + " (" + cardCount + " cards)");
+                    playersList.Add(new PlayerData { name = name, cardCount = cardCount, isFirstPlayer = isFirstPlayer });
+                    Debug.Log("✓ Added player: " + name + " (" + cardCount + " cards)" + (isFirstPlayer ? " [FIRST PLAYER]" : ""));
                 }
                 else
                 {
@@ -996,7 +1189,7 @@ public class GameManager : MonoBehaviour
     
     void ShowScreen(string screenName)
     {
-        Debug.Log("Showing screen: " + screenName);
+        Debug.Log("=== SHOWING SCREEN: " + screenName + " ===");
         
         // Clear player displays when switching away from game screen
         if (screenName != "game" && playerPositionManager != null)
@@ -1006,23 +1199,70 @@ public class GameManager : MonoBehaviour
         }
         
         // Hide all screens
-        if (lobbyScreen != null) lobbyScreen.SetActive(false);
-        if (gameScreen != null) gameScreen.SetActive(false);
-        if (gameOverScreen != null) gameOverScreen.SetActive(false);
+        if (startScreen != null) 
+        {
+            startScreen.SetActive(false);
+            Debug.Log("StartScreen set to inactive");
+        }
+        if (lobbyScreen != null) 
+        {
+            lobbyScreen.SetActive(false);
+            Debug.Log("LobbyScreen set to inactive");
+        }
+        if (gameScreen != null) 
+        {
+            gameScreen.SetActive(false);
+            Debug.Log("GameScreen set to inactive");
+        }
+        if (gameOverScreen != null) 
+        {
+            gameOverScreen.SetActive(false);
+            Debug.Log("GameOverScreen set to inactive");
+        }
         
         // Show target screen
         switch (screenName)
         {
+            case "start":
+                if (startScreen != null) 
+                {
+                    startScreen.SetActive(true);
+                    Debug.Log("StartScreen activated");
+                    
+                    // Additional debugging for start screen button
+                    if (startScreenButton != null)
+                    {
+                        Debug.Log("StartScreenButton state after screen activation:");
+                        Debug.Log("- Active in hierarchy: " + startScreenButton.gameObject.activeInHierarchy);
+                        Debug.Log("- Interactable: " + startScreenButton.interactable);
+                        Debug.Log("- GameObject name: " + startScreenButton.gameObject.name);
+                    }
+                }
+                break;
             case "lobby":
-                if (lobbyScreen != null) lobbyScreen.SetActive(true);
+                if (lobbyScreen != null) 
+                {
+                    lobbyScreen.SetActive(true);
+                    Debug.Log("LobbyScreen activated");
+                }
                 break;
             case "game":
-                if (gameScreen != null) gameScreen.SetActive(true);
+                if (gameScreen != null) 
+                {
+                    gameScreen.SetActive(true);
+                    Debug.Log("GameScreen activated");
+                }
                 break;
             case "game-over":
-                if (gameOverScreen != null) gameOverScreen.SetActive(true);
+                if (gameOverScreen != null) 
+                {
+                    gameOverScreen.SetActive(true);
+                    Debug.Log("GameOverScreen activated");
+                }
                 break;
         }
+        
+        Debug.Log("=== SCREEN SWITCH COMPLETE ===");
     }
     
     void UpdatePlayersList(PlayerData[] newPlayers)
@@ -1069,27 +1309,6 @@ public class GameManager : MonoBehaviour
         
         // Still update lobby screen for compatibility
         UpdateLobbyPlayersList(limitedPlayers);
-        
-        // Enable start game button only if 2-4 players
-        if (startGameButton != null)
-        {
-            bool canStart = limitedPlayers.Length >= 2 && limitedPlayers.Length <= 4;
-            startGameButton.interactable = canStart;
-            // Debug.Log("Start game button enabled: " + canStart + " (players: " + limitedPlayers.Length + "/2-4 required)");
-            
-            if (limitedPlayers.Length < 2)
-            {
-                // Debug.Log("Need " + (2 - limitedPlayers.Length) + " more players to start the game");
-            }
-            else if (limitedPlayers.Length > 4)
-            {
-                // Debug.Log("Too many players (" + limitedPlayers.Length + "/4 max)");
-            }
-        }
-        else
-        {
-            Debug.LogError("StartGameButton is null!");
-        }
         
         Debug.Log("======= PLAYER DISPLAY DEBUG END =======");
     }
@@ -1254,6 +1473,7 @@ public class PlayerData
 {
     public string name;
     public int cardCount;
+    public bool isFirstPlayer;
 }
 
 [Serializable]

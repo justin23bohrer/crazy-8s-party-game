@@ -75,13 +75,14 @@ class RoomManager {
       name: playerName,
       connected: true,
       cardCount: 0,
-      joinedAt: new Date()
+      joinedAt: new Date(),
+      isFirstPlayer: room.players.size === 0 // True if this is the first player
     };
 
     room.players.set(playerId, player);
     this.playerToRoom.set(playerId, roomCode);
 
-    console.log(`Player ${playerName} (${playerId}) joined Crazy 8s room ${roomCode}`);
+    console.log(`Player ${playerName} (${playerId}) joined Crazy 8s room ${roomCode}${player.isFirstPlayer ? ' (FIRST PLAYER)' : ''}`);
     return { success: true, player, roomData: this.getRoomData(roomCode) };
   }
 
@@ -116,10 +117,18 @@ class RoomManager {
   }
 
   // Start Crazy 8s game
-  startGame(roomCode, hostId) {
+  startGame(roomCode, requesterId) {
     const room = this.rooms.get(roomCode);
-    if (!room || room.hostId !== hostId) {
-      return { success: false, error: 'Not authorized or room not found' };
+    if (!room) {
+      return { success: false, error: 'Room not found' };
+    }
+
+    // Check if requester is host OR first player
+    const requesterPlayer = room.players.get(requesterId);
+    const isAuthorized = room.hostId === requesterId || (requesterPlayer && requesterPlayer.isFirstPlayer);
+    
+    if (!isAuthorized) {
+      return { success: false, error: 'Not authorized - only host or first player can start the game' };
     }
 
     if (room.players.size < 2) {
