@@ -136,7 +136,7 @@ io.on('connection', (socket) => {
         const mainScreenGameState = {
           currentPlayer: Array.from(room.players.values())[result.gameState.currentPlayer]?.name,
           topCard: result.gameState.lastPlayedCard,
-          currentSuit: result.gameState.currentSuit,
+          currentColor: result.gameState.currentColor,
           deckCount: result.gameState.deck.length,
           players: Array.from(room.players.values()).map(p => ({
             name: p.name,
@@ -222,7 +222,7 @@ io.on('connection', (socket) => {
       if (playerIndex === -1) return;
 
       const cardIndex = room.gameState.playerHands[playerIndex].findIndex(c => 
-        c.suit === card.suit && c.rank === card.rank
+        c.color === card.color && c.rank === card.rank
       );
 
       const result = roomManager.handlePlayCard(room, playerIndex, cardIndex);
@@ -297,19 +297,19 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('choose-suit', (data) => {
+  socket.on('choose-color', (data) => { // Changed from choose-suit to choose-color
     try {
-      const { roomCode, suit } = data;
+      const { roomCode, color } = data; // Changed from suit to color
       const room = roomManager.rooms.get(roomCode);
       if (!room) return;
 
-      room.gameState.chosenSuit = suit;
-      room.gameState.currentSuit = suit;
+      room.gameState.chosenColor = color; // Changed from chosenSuit to chosenColor
+      room.gameState.currentColor = color; // Changed from currentSuit to currentColor
 
-      // Notify all players about the suit choice
-      io.to(roomCode).emit('suit-chosen', {
+      // Notify all players about the color choice
+      io.to(roomCode).emit('color-chosen', { // Changed from suit-chosen to color-chosen
         playerName: room.players.get(socket.id).name,
-        suit: suit,
+        color: color, // Changed from suit to color
         gameState: roomManager.getMainScreenGameState(room)
       });
 
@@ -324,7 +324,7 @@ io.on('connection', (socket) => {
         }
       }
     } catch (error) {
-      console.error('Error choosing suit:', error);
+      console.error('Error choosing color:', error);
     }
   });
 

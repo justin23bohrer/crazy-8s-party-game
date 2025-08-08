@@ -22,10 +22,11 @@ public class GameManager : MonoBehaviour
     public TextMeshProUGUI waitingText;
     public Transform playersContainer;
     public GameObject playerCardPrefab;
+    public RoomCodeBorderCycler roomCodeBorderCycler;
     
     [Header("Game UI")]
     public TextMeshProUGUI currentPlayerText;
-    public TextMeshProUGUI currentSuitText;
+    public TextMeshProUGUI currentColorText;
     public TextMeshProUGUI deckCountText;
     public Image topCardImage;
     public PlayerPositionManager playerPositionManager;
@@ -314,12 +315,15 @@ public class GameManager : MonoBehaviour
         if (playerCardPrefab == null) { Debug.LogError("PlayerCardPrefab is not assigned!"); valid = false; }
         else { Debug.Log("✓ PlayerCardPrefab assigned"); }
         
+        if (roomCodeBorderCycler == null) { Debug.LogWarning("RoomCodeBorderCycler is not assigned - room code border won't cycle colors"); }
+        else { Debug.Log("✓ RoomCodeBorderCycler assigned"); }
+        
         // Game UI
         if (currentPlayerText == null) { Debug.LogError("CurrentPlayerText is not assigned!"); valid = false; }
         else { Debug.Log("✓ CurrentPlayerText assigned"); }
         
-        if (currentSuitText == null) { Debug.LogError("CurrentSuitText is not assigned!"); valid = false; }
-        else { Debug.Log("✓ CurrentSuitText assigned"); }
+        if (currentColorText == null) { Debug.LogError("CurrentColorText is not assigned!"); valid = false; }
+        else { Debug.Log("✓ CurrentColorText assigned"); }
         
         if (deckCountText == null) { Debug.LogError("DeckCountText is not assigned!"); valid = false; }
         else { Debug.Log("✓ DeckCountText assigned"); }
@@ -365,7 +369,7 @@ public class GameManager : MonoBehaviour
             socket.On("card-played", new Action<SocketIOResponse>(HandleCardPlayed));
             socket.On("card-drawn", new Action<SocketIOResponse>(HandleCardDrawn));
             socket.On("game-state-updated", new Action<SocketIOResponse>(HandleGameStateUpdated));
-            socket.On("suit-chosen", new Action<SocketIOResponse>(HandleSuitChosen));
+            socket.On("color-chosen", new Action<SocketIOResponse>(HandleColorChosen));
             
             socket.Connect();
             Debug.Log("Socket connection initiated...");
@@ -401,7 +405,7 @@ public class GameManager : MonoBehaviour
                 
                 // Initialize game UI
                 if (currentPlayerText != null) currentPlayerText.text = "Waiting for game state...";
-                if (currentSuitText != null) currentSuitText.text = "Current Suit: --";
+                if (currentColorText != null) currentColorText.text = "Current Color: --";
                 if (deckCountText != null) deckCountText.text = "Cards Left: --";
                 
                 Debug.Log("Switched to game screen and initialized UI");
@@ -420,7 +424,7 @@ public class GameManager : MonoBehaviour
                 
                 // Initialize game UI
                 if (currentPlayerText != null) currentPlayerText.text = "Waiting for game state...";
-                if (currentSuitText != null) currentSuitText.text = "Current Suit: --";
+                if (currentColorText != null) currentColorText.text = "Current Color: --";
                 if (deckCountText != null) deckCountText.text = "Cards Left: --";
                 
                 Debug.Log("Switched to game screen and initialized UI (fallback)");
@@ -748,28 +752,28 @@ public class GameManager : MonoBehaviour
         }
     }
     
-    void HandleSuitChosen(SocketIOResponse response)
+    void HandleColorChosen(SocketIOResponse response)
     {
         try
         {
-            Debug.Log("Suit chosen event received");
+            Debug.Log("Color chosen event received");
             string jsonString = response.GetValue().ToString();
-            Debug.Log("Suit chosen JSON: " + jsonString);
+            Debug.Log("Color chosen JSON: " + jsonString);
             
-            string suit = ExtractJsonValue(jsonString, "suit");
+            string color = ExtractJsonValue(jsonString, "color");
             string playerName = ExtractJsonValue(jsonString, "playerName");
             
             EnqueueMainThreadAction(delegate() {
-                if (currentSuitText != null && suit != null && suit != "")
+                if (currentColorText != null && color != null && color != "")
                 {
-                    currentSuitText.text = "Current Suit: " + suit;
-                    Debug.Log(playerName + " chose suit: " + suit);
+                    currentColorText.text = "Current Color: " + color;
+                    Debug.Log(playerName + " chose color: " + color);
                 }
             });
         }
         catch (Exception e)
         {
-            Debug.LogError("Error handling suit chosen: " + e.Message);
+            Debug.LogError("Error handling color chosen: " + e.Message);
         }
     }
     
@@ -793,7 +797,7 @@ public class GameManager : MonoBehaviour
             
             // Extract current card info
             string currentCard = ExtractCurrentCardFromJson(jsonString);
-            string currentSuit = ExtractJsonValue(jsonString, "currentSuit");
+            string currentColor = ExtractJsonValue(jsonString, "currentColor");
             
             // Extract deck count
             string deckCountStr = ExtractJsonValue(jsonString, "deckCount");
@@ -823,11 +827,11 @@ public class GameManager : MonoBehaviour
                     // Debug.LogWarning("Current player is empty or null: '" + currentPlayer + "'");
                 }
                 
-                // Update current suit
-                if (currentSuitText != null && currentSuit != null && currentSuit != "")
+                // Update current color
+                if (currentColorText != null && currentColor != null && currentColor != "")
                 {
-                    currentSuitText.text = "Current Suit: " + currentSuit;
-                    // Debug.Log("Updated current suit text to: " + currentSuit);
+                    currentColorText.text = "Current Color: " + currentColor;
+                    // Debug.Log("Updated current color text to: " + currentColor);
                 }
                 
                 // Update top card display
@@ -857,7 +861,7 @@ public class GameManager : MonoBehaviour
                     Debug.LogWarning("No players found in game state update!");
                 }
                 
-                // Debug.Log("Game state updated - Player: " + currentPlayer + ", Suit: " + currentSuit + ", Deck: " + deckCount);
+                // Debug.Log("Game state updated - Player: " + currentPlayer + ", Color: " + currentColor + ", Deck: " + deckCount);
             });
         }
         catch (Exception e)
@@ -916,7 +920,7 @@ public class GameManager : MonoBehaviour
     {
         try
         {
-            // Look for "topCard" object and extract rank and suit
+            // Look for "topCard" object and extract rank and color
             string topCardPattern = "\"topCard\":{";
             int startIdx = json.IndexOf(topCardPattern);
             if (startIdx == -1) return "";
@@ -927,11 +931,11 @@ public class GameManager : MonoBehaviour
             string topCardJson = json.Substring(startIdx, endIdx - startIdx + 1);
             
             string rank = ExtractJsonValue(topCardJson, "rank");
-            string suit = ExtractJsonValue(topCardJson, "suit");
+            string color = ExtractJsonValue(topCardJson, "color");
             
-            if (rank != "" && suit != "")
+            if (rank != "" && color != "")
             {
-                return rank + " of " + suit;
+                return rank + " of " + color;
             }
             
             return "";
@@ -1229,6 +1233,12 @@ public class GameManager : MonoBehaviour
                     startScreen.SetActive(true);
                     Debug.Log("StartScreen activated");
                     
+                    // Stop border cycling when not in lobby
+                    if (roomCodeBorderCycler != null)
+                    {
+                        roomCodeBorderCycler.StopCycling();
+                    }
+                    
                     // Additional debugging for start screen button
                     if (startScreenButton != null)
                     {
@@ -1244,6 +1254,13 @@ public class GameManager : MonoBehaviour
                 {
                     lobbyScreen.SetActive(true);
                     Debug.Log("LobbyScreen activated");
+                    
+                    // Start the beautiful color cycling effect!
+                    if (roomCodeBorderCycler != null)
+                    {
+                        roomCodeBorderCycler.StartCycling();
+                        Debug.Log("Started room code border color cycling");
+                    }
                 }
                 break;
             case "game":
@@ -1251,6 +1268,12 @@ public class GameManager : MonoBehaviour
                 {
                     gameScreen.SetActive(true);
                     Debug.Log("GameScreen activated");
+                    
+                    // Stop border cycling when in game
+                    if (roomCodeBorderCycler != null)
+                    {
+                        roomCodeBorderCycler.StopCycling();
+                    }
                 }
                 break;
             case "game-over":
@@ -1258,6 +1281,12 @@ public class GameManager : MonoBehaviour
                 {
                     gameOverScreen.SetActive(true);
                     Debug.Log("GameOverScreen activated");
+                    
+                    // Stop border cycling when in game over
+                    if (roomCodeBorderCycler != null)
+                    {
+                        roomCodeBorderCycler.StopCycling();
+                    }
                 }
                 break;
         }
@@ -1373,13 +1402,13 @@ public class GameManager : MonoBehaviour
                 Debug.Log("Found existing CardController on topCardImage");
             }
             
-            // Parse card value (format like "J of hearts", "8 of hearts")
+            // Parse card value (format like "J of red", "8 of blue")
             CardData cardData = ParseCardValue(cardValue);
             if (cardData != null)
             {
-                Debug.Log($"Parsed card data: {cardData.value} of {cardData.suit}");
-                cardController.SetCard(cardData.suit, cardData.value);
-                Debug.Log($"Called CardController.SetCard with: {cardData.suit}, {cardData.value}");
+                Debug.Log($"Parsed card data: {cardData.value} of {cardData.color}");
+                cardController.SetCard(cardData.color, cardData.value);
+                Debug.Log($"Called CardController.SetCard with: {cardData.color}, {cardData.value}");
             }
             else
             {
@@ -1404,23 +1433,23 @@ public class GameManager : MonoBehaviour
             return null;
         }
         
-        // Expected format: "J of hearts", "8 of hearts", "A of spades"
+        // Expected format: "J of red", "8 of blue", "A of green"
         string[] parts = cardString.Split(new string[] { " of " }, StringSplitOptions.None);
         if (parts.Length != 2)
         {
-            Debug.LogError($"Invalid card format: '{cardString}'. Expected format: 'RANK of SUIT'");
+            Debug.LogError($"Invalid card format: '{cardString}'. Expected format: 'RANK of COLOR'");
             return null;
         }
         
         string valueStr = parts[0].Trim();
-        string suit = parts[1].Trim().ToLower();
+        string color = parts[1].Trim().ToLower();
         
-        Debug.Log($"Parsed parts - Value: '{valueStr}', Suit: '{suit}'");
+        Debug.Log($"Parsed parts - Value: '{valueStr}', Color: '{color}'");
         
-        // Convert suit to lowercase for consistency
-        if (suit != "hearts" && suit != "diamonds" && suit != "clubs" && suit != "spades")
+        // Convert color to lowercase for consistency
+        if (color != "red" && color != "blue" && color != "green" && color != "yellow")
         {
-            Debug.LogError($"Invalid suit: '{suit}'. Expected: hearts, diamonds, clubs, or spades");
+            Debug.LogError($"Invalid color: '{color}'. Expected: red, blue, green, or yellow");
             return null;
         }
         
@@ -1447,8 +1476,8 @@ public class GameManager : MonoBehaviour
             return null;
         }
         
-        Debug.Log($"Successfully parsed card: {value} of {suit}");
-        return new CardData(suit, value);
+        Debug.Log($"Successfully parsed card: {value} of {color}");
+        return new CardData(color, value);
     }
     
     System.Collections.IEnumerator RefreshUIDelayed()

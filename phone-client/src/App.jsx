@@ -73,13 +73,6 @@ function App() {
 
   return (
     <div className="app">
-      {/* Connection status indicator */}
-      <div className={`connection-indicator ${connectionStatus}`}>
-        {connectionStatus === 'connected' && '🟢 Connected'}
-        {connectionStatus === 'disconnected' && '🔴 Disconnected'}
-        {connectionStatus === 'error' && '⚠️ Connection Error'}
-      </div>
-
       {/* Error message */}
       {error && (
         <div className="error-message">

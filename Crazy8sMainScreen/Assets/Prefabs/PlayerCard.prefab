@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 4125791825150810683}
   - component: {fileID: 5113241546994247733}
   - component: {fileID: 3950884726212511130}
+  - component: {fileID: 8820298483398002622}
   m_Layer: 5
   m_Name: PlayerCard
   m_TagString: Untagged
@@ -85,13 +86,28 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2598086295719789585}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: adb30198aa32dd140b5750692dd48104, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   radius: 40
   image: {fileID: 5113241546994247733}
+--- !u!114 &8820298483398002622
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2598086295719789585}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e19747de3f5aca642ab2be37e372fb86, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_EffectColor: {r: 0, g: 0, b: 0, a: 0.5}
+  m_EffectDistance: {x: 1, y: -1}
+  m_UseGraphicAlpha: 1
 --- !u!1 &4333737317761405020
 GameObject:
   m_ObjectHideFlags: 0
@@ -126,8 +142,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 6.6917, y: 0}
-  m_SizeDelta: {x: 227.3834, y: 50}
+  m_AnchoredPosition: {x: 8.6507, y: 28}
+  m_SizeDelta: {x: 153.9179, y: 25}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &502528298594591072
 CanvasRenderer:
@@ -168,8 +184,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4293555268
-  m_fontColor: {r: 0.26854146, g: 0.4534892, b: 0.91823894, a: 1}
+    rgba: 4292671743
+  m_fontColor: {r: 1, g: 0.9725491, b: 0.8627452, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -224,7 +240,7 @@ MonoBehaviour:
   m_VertexBufferAutoSizeReduction: 0
   m_useMaxVisibleDescender: 1
   m_pageToDisplay: 1
-  m_margin: {x: 0, y: 0, z: -0.1786499, w: 0}
+  m_margin: {x: 0, y: 0, z: -0.1786499, w: 5.9971924}
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
   m_hasFontAssetChanged: 0
@@ -265,8 +281,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 2.9042, y: 2.0745}
-  m_SizeDelta: {x: 245.2147, y: 67.6379}
+  m_AnchoredPosition: {x: 6.6917, y: 0.000015259}
+  m_SizeDelta: {x: 150, y: 150}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &6975832224411224476
 CanvasRenderer:
@@ -289,7 +305,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_Color: {r: 0.8, g: 0.101960786, b: 0.101960786, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -318,5 +334,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: adb30198aa32dd140b5750692dd48104, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  radius: 28
+  radius: 70
   image: {fileID: 7364132379907407690}

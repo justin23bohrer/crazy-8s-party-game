@@ -32,8 +32,8 @@ class RoomManager {
         deck: [],
         discardPile: [],
         playerHands: {},
-        currentSuit: null,
-        chosenSuit: null, // When an 8 is played
+        currentColor: null, // Changed from currentSuit to currentColor
+        chosenColor: null, // Changed from chosenSuit to chosenColor - When an 8 is played
         lastPlayedCard: null,
         turnCount: 0
       },
@@ -106,11 +106,11 @@ class RoomManager {
 
     switch (action.type) {
       case 'play_card':
-        return this.handlePlayCard(room, playerIndex, action.cardIndex, action.chosenSuit);
+        return this.handlePlayCard(room, playerIndex, action.cardIndex, action.chosenColor); // Changed from chosenSuit to chosenColor
       case 'draw_card':
         return this.handleDrawCard(room, playerIndex);
-      case 'choose_suit':
-        return this.handleChooseSuit(room, playerIndex, action.suit);
+      case 'choose_color': // Changed from choose_suit to choose_color
+        return this.handleChooseColor(room, playerIndex, action.color); // Changed from action.suit to action.color
       default:
         return { success: false, error: 'Unknown action type' };
     }
@@ -148,8 +148,8 @@ class RoomManager {
     room.gameState.deck = remainingDeck;
     room.gameState.discardPile = [startCard];
     room.gameState.playerHands = hands;
-    room.gameState.currentSuit = startCard.suit;
-    room.gameState.chosenSuit = null;
+    room.gameState.currentColor = startCard.color; // Changed from currentSuit to currentColor
+    room.gameState.chosenColor = null; // Changed from chosenSuit to chosenColor
     room.gameState.lastPlayedCard = startCard;
     room.gameState.turnCount = 0;
 
@@ -185,8 +185,8 @@ class RoomManager {
     }
 
     // Check if card can be played
-    const currentSuit = room.gameState.chosenSuit || room.gameState.currentSuit;
-    if (!this.gameLogic.canPlayCard(card, topCard, currentSuit)) {
+    const currentColor = room.gameState.chosenColor || room.gameState.currentColor; // Changed from currentSuit to currentColor
+    if (!this.gameLogic.canPlayCard(card, topCard, currentColor)) {
       return { success: false, error: 'Cannot play this card' };
     }
 
@@ -202,22 +202,22 @@ class RoomManager {
 
     // Handle 8s (wild cards)
     if (card.rank === '8') {
-      if (chosenSuit && this.gameLogic.isValidSuit(chosenSuit)) {
-        room.gameState.chosenSuit = chosenSuit;
-        room.gameState.currentSuit = chosenSuit;
+      if (chosenColor && this.gameLogic.isValidColor(chosenColor)) { // Changed from chosenSuit to chosenColor and isValidSuit to isValidColor
+        room.gameState.chosenColor = chosenColor; // Changed from chosenSuit to chosenColor
+        room.gameState.currentColor = chosenColor; // Changed from currentSuit to currentColor
       } else {
-        // Need to choose suit
+        // Need to choose color
         return { 
           success: true, 
-          needSuitChoice: true,
+          needColorChoice: true, // Changed from needSuitChoice to needColorChoice
           gameOver: this.gameLogic.hasWon(playerHand),
           winner: this.gameLogic.hasWon(playerHand) ? players[playerIndex].name : null
         };
       }
     } else {
-      // Regular card - update current suit
-      room.gameState.currentSuit = card.suit;
-      room.gameState.chosenSuit = null;
+      // Regular card - update current color
+      room.gameState.currentColor = card.color; // Changed from suit to color and currentSuit to currentColor
+      room.gameState.chosenColor = null; // Changed from chosenSuit to chosenColor
     }
 
     // Check for win
@@ -267,14 +267,14 @@ class RoomManager {
     return { success: true, drawnCard };
   }
 
-  // Handle choosing suit after playing an 8
-  handleChooseSuit(room, playerIndex, suit) {
-    if (!this.gameLogic.isValidSuit(suit)) {
-      return { success: false, error: 'Invalid suit choice' };
+  // Handle choosing color after playing an 8
+  handleChooseColor(room, playerIndex, color) { // Changed from handleChooseSuit to handleChooseColor and suit to color
+    if (!this.gameLogic.isValidColor(color)) { // Changed from isValidSuit to isValidColor
+      return { success: false, error: 'Invalid color choice' }; // Changed error message
     }
 
-    room.gameState.chosenSuit = suit;
-    room.gameState.currentSuit = suit;
+    room.gameState.chosenColor = color; // Changed from chosenSuit to chosenColor
+    room.gameState.currentColor = color; // Changed from currentSuit to currentColor
 
     // Move to next player
     room.gameState.currentPlayer = this.gameLogic.getNextPlayer(
@@ -303,8 +303,8 @@ class RoomManager {
       gameState: {
         phase: room.gameState.phase,
         currentPlayer: room.gameState.currentPlayer,
-        currentSuit: room.gameState.currentSuit,
-        chosenSuit: room.gameState.chosenSuit,
+        currentColor: room.gameState.currentColor, // Changed from currentSuit to currentColor
+        chosenColor: room.gameState.chosenColor, // Changed from chosenSuit to chosenColor
         topCard: room.gameState.lastPlayedCard,
         deckCount: room.gameState.deck?.length || 0
       }
@@ -322,7 +322,7 @@ class RoomManager {
     return {
       playerHand: room.gameState.playerHands[playerIndex] || [],
       topCard: room.gameState.lastPlayedCard,
-      currentSuit: room.gameState.chosenSuit || room.gameState.currentSuit,
+      currentColor: room.gameState.chosenColor || room.gameState.currentColor, // Changed from currentSuit to currentColor
       currentPlayer: room.gameState.currentPlayer,
       players: Array.from(room.players.values()).map(p => ({ 
         name: p.name, 
@@ -404,7 +404,7 @@ class RoomManager {
     return {
       currentPlayer: Array.from(room.players.values())[room.gameState.currentPlayer]?.name,
       topCard: room.gameState.lastPlayedCard,
-      currentSuit: room.gameState.chosenSuit || room.gameState.currentSuit,
+      currentColor: room.gameState.chosenColor || room.gameState.currentColor, // Changed from currentSuit to currentColor
       deckCount: room.gameState.deck.length,
       players: Array.from(room.players.values()).map(p => ({
         name: p.name,

@@ -2,16 +2,16 @@ import { useState, useEffect } from 'react';
 import './index.css';
 
 function GameScreen({ gameData, onLeave, socketService }) {
-  const [gameState, setGameState] = useState('waiting'); // waiting, playing, choosing-suit, game-over
+  const [gameState, setGameState] = useState('waiting'); // waiting, playing, choosing-color, game-over (changed choosing-suit to choosing-color)
   const [playerHand, setPlayerHand] = useState([]);
   const [topCard, setTopCard] = useState(null);
-  const [currentSuit, setCurrentSuit] = useState(null);
+  const [currentColor, setCurrentColor] = useState(null); // Changed from currentSuit to currentColor
   const [isPlayerTurn, setIsPlayerTurn] = useState(false);
   const [currentPlayer, setCurrentPlayer] = useState('');
   const [playersInfo, setPlayersInfo] = useState([]);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState('');
-  const [showSuitSelector, setShowSuitSelector] = useState(false);
+  const [showColorSelector, setShowColorSelector] = useState(false); // Changed from showSuitSelector to showColorSelector
   const [pendingEight, setPendingEight] = useState(null);
   const [isFirstPlayer, setIsFirstPlayer] = useState(false);
 
@@ -29,7 +29,7 @@ function GameScreen({ gameData, onLeave, socketService }) {
     socketService.on('game-state-updated', handleGameStateUpdated);
     socketService.on('card-played', handleCardPlayed);
     socketService.on('card-drawn', handleCardDrawn);
-    socketService.on('suit-chosen', handleSuitChosen);
+    socketService.on('color-chosen', handleColorChosen); // Changed from suit-chosen to color-chosen
     socketService.on('game-ended', handleGameEnded);
     socketService.on('player-action', handlePlayerAction);
     socketService.on('error', handleError);
@@ -40,7 +40,7 @@ function GameScreen({ gameData, onLeave, socketService }) {
       socketService.off('game-state-updated', handleGameStateUpdated);
       socketService.off('card-played', handleCardPlayed);
       socketService.off('card-drawn', handleCardDrawn);
-      socketService.off('suit-chosen', handleSuitChosen);
+      socketService.off('color-chosen', handleColorChosen); // Changed from suit-chosen to color-chosen
       socketService.off('game-ended', handleGameEnded);
       socketService.off('player-action', handlePlayerAction);
       socketService.off('error', handleError);
@@ -51,7 +51,7 @@ function GameScreen({ gameData, onLeave, socketService }) {
     console.log('Crazy 8s game started:', data);
     setGameState('playing');
     updateGameState(data.gameState);
-    setMessage('Game started! Match the suit or rank of the top card.');
+    setMessage('Game started! Match the color or rank of the top card.');
   };
 
   const handleGameStateUpdated = (data) => {
@@ -71,11 +71,11 @@ function GameScreen({ gameData, onLeave, socketService }) {
     updateGameState(data.gameState);
   };
 
-  const handleSuitChosen = (data) => {
-    console.log('Suit chosen:', data);
-    setMessage(`${data.playerName} chose ${getSuitSymbol(data.suit)}`);
-    setCurrentSuit(data.suit);
-    setShowSuitSelector(false);
+  const handleColorChosen = (data) => { // Changed from handleSuitChosen to handleColorChosen
+    console.log('Color chosen:', data);
+    setMessage(`${data.playerName} chose ${getColorEmoji(data.color)}`); // Changed to use color and color emoji
+    setCurrentColor(data.color); // Changed from setCurrentSuit to setCurrentColor
+    setShowColorSelector(false); // Changed from setShowSuitSelector to setShowColorSelector
     setPendingEight(null);
     updateGameState(data.gameState);
   };
@@ -110,8 +110,8 @@ function GameScreen({ gameData, onLeave, socketService }) {
       setTopCard(gameState.topCard);
     }
     
-    if (gameState.currentSuit) {
-      setCurrentSuit(gameState.currentSuit);
+    if (gameState.currentColor) { // Changed from currentSuit to currentColor
+      setCurrentColor(gameState.currentColor); // Changed from setCurrentSuit to setCurrentColor
     }
     
     if (gameState.currentPlayer !== undefined) {
@@ -143,10 +143,10 @@ function GameScreen({ gameData, onLeave, socketService }) {
     try {
       setError(null);
       
-      // If it's an 8, show suit selector
+      // If it's an 8, show color selector
       if (card.rank === '8') {
         setPendingEight(card);
-        setShowSuitSelector(true);
+        setShowColorSelector(true);
         return;
       }
 
@@ -160,7 +160,7 @@ function GameScreen({ gameData, onLeave, socketService }) {
     }
   };
 
-  const chooseSuit = async (suit) => {
+  const chooseColor = async (color) => { // Changed from chooseSuit to chooseColor and suit to color
     if (!pendingEight) return;
 
     try {
@@ -172,15 +172,15 @@ function GameScreen({ gameData, onLeave, socketService }) {
         card: pendingEight
       });
       
-      // Then choose the suit
-      socketService.emitGameAction('choose-suit', {
+      // Then choose the color
+      socketService.emitGameAction('choose-color', { // Changed from choose-suit to choose-color
         roomCode: gameData.roomCode,
-        suit: suit
+        color: color // Changed from suit to color
       });
       
     } catch (error) {
-      console.error('Failed to choose suit:', error);
-      setError('Failed to choose suit: ' + error.message);
+      console.error('Failed to choose color:', error); // Changed error message
+      setError('Failed to choose color: ' + error.message); // Changed error message
     }
   };
 
@@ -217,21 +217,21 @@ function GameScreen({ gameData, onLeave, socketService }) {
 
   const formatCard = (card) => {
     if (!card) return '';
-    return `${card.rank}${getSuitSymbol(card.suit)}`;
+    return `${card.rank} ${getColorEmoji(card.color)}`; // Changed to use color instead of suit
   };
 
-  const getSuitSymbol = (suit) => {
-    const symbols = {
-      'hearts': '♥️',
-      'diamonds': '♦️',
-      'clubs': '♣️',
-      'spades': '♠️'
+  const getColorEmoji = (color) => { // Changed from getSuitSymbol to getColorEmoji
+    const colorEmojis = {
+      'red': '🔴',
+      'blue': '🔵',
+      'green': '🟢',
+      'yellow': '🟡'
     };
-    return symbols[suit] || suit;
+    return colorEmojis[color] || color;
   };
 
-  const getSuitColor = (suit) => {
-    return (suit === 'hearts' || suit === 'diamonds') ? 'red' : 'black';
+  const getCardColor = (color) => { // Simplified - just return the color name
+    return color;
   };
 
   const canPlayCard = (card) => {
@@ -240,8 +240,8 @@ function GameScreen({ gameData, onLeave, socketService }) {
     // 8s can always be played
     if (card.rank === '8') return true;
     
-    // Match suit or rank
-    return card.suit === currentSuit || card.rank === topCard.rank;
+    // Match color or rank
+    return card.color === currentColor || card.rank === topCard.rank; // Changed from suit to color and currentSuit to currentColor
   };
 
   const renderWaitingScreen = () => (
@@ -274,18 +274,18 @@ function GameScreen({ gameData, onLeave, socketService }) {
     </div>
   );
 
-  const renderSuitSelector = () => (
-    <div className="suit-selector-overlay">
-      <div className="suit-selector">
-        <h3>Choose a suit for your 8:</h3>
-        <div className="suits">
-          {['hearts', 'diamonds', 'clubs', 'spades'].map(suit => (
+  const renderColorSelector = () => (
+    <div className="color-selector-overlay">
+      <div className="color-selector">
+        <h3>Choose a color for your 8:</h3> {/* Changed from suit to color */}
+        <div className="colors"> {/* Changed from suits to colors */}
+          {['red', 'blue', 'green', 'yellow'].map(color => ( // Changed suit array to color array
             <button
-              key={suit}
-              className={`suit-button ${suit}`}
-              onClick={() => chooseSuit(suit)}
+              key={color}
+              className={`color-button ${color}`} // Changed from suit-button to color-button
+              onClick={() => chooseColor(color)} // Changed from chooseSuit to chooseColor
             >
-              {getSuitSymbol(suit)}
+              {getColorEmoji(color)} {/* Changed from getSuitSymbol to getColorEmoji */}
             </button>
           ))}
         </div>
@@ -300,8 +300,8 @@ function GameScreen({ gameData, onLeave, socketService }) {
           <span className="turn-info">
             {isPlayerTurn ? "Your Turn!" : `${currentPlayer}'s Turn`}
           </span>
-          <span className="current-suit">
-            Current: {currentSuit ? getSuitSymbol(currentSuit) : 'Any'}
+          <span className="current-color"> {/* Changed from current-suit to current-color */}
+            Current: {currentColor ? getColorEmoji(currentColor) : 'Any'} {/* Changed from currentSuit to currentColor and getSuitSymbol to getColorEmoji */}
           </span>
         </div>
         <button onClick={onLeave} className="leave-button">Leave</button>
@@ -319,36 +319,20 @@ function GameScreen({ gameData, onLeave, socketService }) {
         </div>
       )}
       
-      <div className="game-area">
-        <div className="top-card-area">
-          <h3>Top Card:</h3>
-          {topCard && (
-            <div className={`card ${getSuitColor(topCard.suit)}`}>
-              {formatCard(topCard)}
-            </div>
-          )}
-        </div>
-        
-        <div className="player-info">
-          {playersInfo.map(player => (
-            <div key={player.name} className={`player-info-item ${player.name === currentPlayer ? 'current-player' : ''}`}>
-              <span className="player-name">{player.name}</span>
-              <span className="card-count">{player.cardCount} cards</span>
-            </div>
-          ))}
-        </div>
-        
+      <div className="game-area">        
         <div className="player-hand">
           <h3>Your Hand ({playerHand.length} cards):</h3>
           <div className="cards">
             {playerHand.map((card, index) => (
               <button
-                key={`${card.suit}-${card.rank}-${index}`}
-                className={`card ${getSuitColor(card.suit)} ${canPlayCard(card) ? 'playable' : 'unplayable'}`}
+                key={`${card.color}-${card.rank}-${index}`}
+                className={`card ${getCardColor(card.color)} ${canPlayCard(card) ? 'playable' : 'unplayable'}`}
                 onClick={() => playCard(card)}
                 disabled={!canPlayCard(card)}
               >
-                {formatCard(card)}
+                <div className="card-inner">
+                  <div className="card-number">{card.rank}</div>
+                </div>
               </button>
             ))}
           </div>
@@ -366,7 +350,7 @@ function GameScreen({ gameData, onLeave, socketService }) {
         )}
       </div>
       
-      {showSuitSelector && renderSuitSelector()}
+      {showColorSelector && renderColorSelector()}
     </div>
   );
 

@@ -6,19 +6,19 @@ using TMPro;
 [System.Serializable]
 public class CardData
 {
-    public string suit;
+    public string color;
     public int value;
     public string rank; // Alternative to value for face cards
     
-    public CardData(string suit, int value)
+    public CardData(string color, int value)
     {
-        this.suit = suit;
+        this.color = color;
         this.value = value;
     }
     
-    public CardData(string suit, string rank)
+    public CardData(string color, string rank)
     {
-        this.suit = suit;
+        this.color = color;
         this.rank = rank;
         
         // Convert rank to value
@@ -42,20 +42,15 @@ public class CardController : MonoBehaviour
     public TextMeshProUGUI cardValueTop;
     public TextMeshProUGUI cardValueBottom;
     public TextMeshProUGUI cardValueCenter;  // Center number/letter
-    public Image cardSuitTop;
-    public Image cardSuitBottom;
+    public Image innerCard;  // The inner black card area that will change color
     public Outline cardOutline;
     public Image cardBackground;
     
-    [Header("Suit Colors")]
-    public Color redSuitColor = new Color(0.8f, 0.1f, 0.1f);
-    public Color blackSuitColor = new Color(0.1f, 0.1f, 0.1f);
-    
-    [Header("Suit Sprites (from PNG)")]
-    public Sprite heartsSprite;     // Assign Anglo-American_card_suits.svg_2
-    public Sprite diamondsSprite;   // Assign Anglo-American_card_suits.svg_1
-    public Sprite clubsSprite;      // Assign Anglo-American_card_suits.svg_0
-    public Sprite spadesSprite;     // Assign Anglo-American_card_suits.svg_3
+    [Header("Color Settings")]
+    public Color redColor = new Color(0.8f, 0.1f, 0.1f);
+    public Color blueColor = new Color(0.1f, 0.1f, 0.8f);
+    public Color greenColor = new Color(0.1f, 0.6f, 0.1f);
+    public Color yellowColor = new Color(0.8f, 0.8f, 0.1f);
     
     void Start()
     {
@@ -103,38 +98,31 @@ public class CardController : MonoBehaviour
             Debug.Log("CardValueCenter found: " + (cardValueCenter != null));
         }
         
-        if (cardSuitTop == null) 
+        if (innerCard == null) 
         {
-            cardSuitTop = transform.Find("CardSuitTop")?.GetComponent<Image>();
-            Debug.Log("CardSuitTop found: " + (cardSuitTop != null));
-        }
-        
-        if (cardSuitBottom == null) 
-        {
-            cardSuitBottom = transform.Find("CardSuitBottom")?.GetComponent<Image>();
-            Debug.Log("CardSuitBottom found: " + (cardSuitBottom != null));
+            innerCard = transform.Find("InnerCard")?.GetComponent<Image>();
+            Debug.Log("InnerCard found: " + (innerCard != null));
         }
         
         Debug.Log("=== CardController Start() Complete ===");
     }
     
-    public void SetCard(string suit, int value)
+    public void SetCard(string color, int value)
     {
-        Debug.Log($"=== SetCard called: {GetCardDisplayValue(value)} of {suit} ===");
+        Debug.Log($"=== SetCard called: {GetCardDisplayValue(value)} of {color} ===");
         
-        // Get display value and colors
+        // Get display value and color
         string displayValue = GetCardDisplayValue(value);
-        Color suitColor = GetSuitColor(suit);
-        Sprite suitSprite = GetSuitSprite(suit);
+        Color cardColor = GetCardColor(color);
         
-        Debug.Log($"Display value: {displayValue}, Color: {suitColor}, Sprite: {(suitSprite != null ? suitSprite.name : "NULL")}");
+        Debug.Log($"Display value: {displayValue}, Card Color: {cardColor}");
         
-        // Set card values
+        // Set all text elements to the card color (they will show on the white circle)
         if (cardValueTop != null)
         {
             cardValueTop.text = displayValue;
-            cardValueTop.color = suitColor;
-            Debug.Log("Set cardValueTop: " + displayValue + " with color: " + suitColor);
+            cardValueTop.color = cardColor;
+            Debug.Log("Set cardValueTop: " + displayValue + " with color: " + cardColor);
         }
         else
         {
@@ -144,54 +132,49 @@ public class CardController : MonoBehaviour
         if (cardValueBottom != null)
         {
             cardValueBottom.text = displayValue;
-            cardValueBottom.color = suitColor;
-            Debug.Log("Set cardValueBottom: " + displayValue + " with color: " + suitColor);
+            cardValueBottom.color = cardColor;
+            Debug.Log("Set cardValueBottom: " + displayValue + " with color: " + cardColor);
         }
         else
         {
             Debug.LogWarning("cardValueBottom is NULL!");
         }
         
-        // Set center card value and make it larger/more prominent
+        // Set center card value 
         if (cardValueCenter != null)
         {
             cardValueCenter.text = displayValue;
-            cardValueCenter.color = suitColor;
-            Debug.Log("Set cardValueCenter: " + displayValue + " with color: " + suitColor);
+            cardValueCenter.color = cardColor;
+            Debug.Log("Set cardValueCenter: " + displayValue + " with color: " + cardColor);
         }
         else
         {
             Debug.LogWarning("cardValueCenter is NULL!");
         }
         
-        // Set suit sprites
-        if (cardSuitTop != null && suitSprite != null)
+        // Keep the main card background white/default
+        if (cardBackground != null)
         {
-            cardSuitTop.sprite = suitSprite;
-            cardSuitTop.color = suitColor;
-            Debug.Log("Set cardSuitTop sprite with color: " + suitColor);
+            cardBackground.color = Color.white; // Keep the outer card white
+            Debug.Log("Set cardBackground to white");
+        }
+        
+        // Set the inner card (black area) to the card color
+        if (innerCard != null)
+        {
+            innerCard.color = cardColor;
+            Debug.Log("Set innerCard color: " + cardColor);
         }
         else
         {
-            Debug.LogWarning($"cardSuitTop: {(cardSuitTop != null ? "Found" : "NULL")}, suitSprite: {(suitSprite != null ? "Found" : "NULL")}");
+            Debug.LogWarning("innerCard is NULL!");
         }
         
-        if (cardSuitBottom != null && suitSprite != null)
-        {
-            cardSuitBottom.sprite = suitSprite;
-            cardSuitBottom.color = suitColor;
-            Debug.Log("Set cardSuitBottom sprite with color: " + suitColor);
-        }
-        else
-        {
-            Debug.LogWarning($"cardSuitBottom: {(cardSuitBottom != null ? "Found" : "NULL")}, suitSprite: {(suitSprite != null ? "Found" : "NULL")}");
-        }
-        
-        // Set outline color
+        // Set outline color to match
         if (cardOutline != null)
         {
-            cardOutline.effectColor = suitColor;
-            Debug.Log("Set outline color: " + suitColor);
+            cardOutline.effectColor = cardColor;
+            Debug.Log("Set outline color: " + cardColor);
         }
         else
         {
@@ -202,35 +185,35 @@ public class CardController : MonoBehaviour
     }
     
     // Add test methods for easy testing
-    [ContextMenu("Test Hearts Card")]
-    void TestHeartsCard()
+    [ContextMenu("Test Red Card")]
+    void TestRedCard()
     {
-        SetCard("hearts", 1); // Ace of Hearts
+        SetCard("red", 1); // Ace of Red
     }
     
-    [ContextMenu("Test Diamonds Card")]
-    void TestDiamondsCard()
+    [ContextMenu("Test Blue Card")]
+    void TestBlueCard()
     {
-        SetCard("diamonds", 13); // King of Diamonds
+        SetCard("blue", 8); // 8 of Blue (wild card)
     }
     
-    [ContextMenu("Test Clubs Card")]
-    void TestClubsCard()
+    [ContextMenu("Test Green Card")]
+    void TestGreenCard()
     {
-        SetCard("clubs", 7); // 7 of Clubs
+        SetCard("green", 7); // 7 of Green
     }
     
-    [ContextMenu("Test Spades Card")]
-    void TestSpadesCard()
+    [ContextMenu("Test Yellow Card")]
+    void TestYellowCard()
     {
-        SetCard("spades", 11); // Jack of Spades
+        SetCard("yellow", 5); // 5 of Yellow
     }
     
     public void SetCard(CardData cardData)
     {
         if (cardData != null)
         {
-            SetCard(cardData.suit, cardData.value);
+            SetCard(cardData.color, cardData.value);
         }
     }
     
@@ -247,44 +230,33 @@ public class CardController : MonoBehaviour
         }
     }
     
-    // Get suit color (red for hearts/diamonds, black for clubs/spades)
-    Color GetSuitColor(string suit)
+    // Get card color based on color name
+    Color GetCardColor(string color)
     {
-        switch (suit.ToLower())
+        switch (color.ToLower())
         {
-            case "hearts":
-            case "diamonds": 
-                return redSuitColor;
-            case "clubs":
-            case "spades": 
-                return blackSuitColor;
+            case "red":
+                return redColor;
+            case "blue": 
+                return blueColor;
+            case "green":
+                return greenColor;
+            case "yellow":
+                return yellowColor;
             default: 
-                return blackSuitColor;
-        }
-    }
-    
-    // Get suit sprite from your SVG sprites
-    Sprite GetSuitSprite(string suit)
-    {
-        switch (suit.ToLower())
-        {
-            case "hearts": return heartsSprite;
-            case "diamonds": return diamondsSprite;
-            case "clubs": return clubsSprite;
-            case "spades": return spadesSprite;
-            default: return null;
+                return redColor;
         }
     }
     
     public void ShowCardBack()
     {
-        // Hide all text and suits, show card back
+        // Hide all text and reset inner card, show card back
         if (cardValueTop != null) cardValueTop.text = "";
         if (cardValueBottom != null) cardValueBottom.text = "";
         if (cardValueCenter != null) cardValueCenter.text = "";
-        if (cardSuitTop != null) cardSuitTop.sprite = null;
-        if (cardSuitBottom != null) cardSuitBottom.sprite = null;
+        if (innerCard != null) innerCard.color = Color.black; // Reset to black
         
+        // Set card back appearance
         if (cardBackground != null)
         {
             cardBackground.color = new Color(0.2f, 0.3f, 0.8f); // Blue card back
