@@ -2462,6 +2462,33 @@ public class GameManager : MonoBehaviour
             Debug.LogError("❌ topCardImage is null!");
         }
     }
+    
+    /// <summary>
+    /// Called by SpiralAnimationController when spiral animation completes
+    /// Notifies server to clear animation lock so players can continue
+    /// </summary>
+    public void OnSpiralAnimationComplete()
+    {
+        Debug.Log("🎬 Spiral animation completed - notifying server to clear animation lock");
+        
+        if (socket != null && socket.Connected)
+        {
+            try
+            {
+                // Send event to server to clear animation lock
+                socket.Emit("animation-complete");
+                Debug.Log("✅ Sent animation-complete event to server");
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"❌ Failed to notify server of animation completion: {e.Message}");
+            }
+        }
+        else
+        {
+            Debug.LogWarning("⚠️ Cannot notify server - socket not connected");
+        }
+    }
 }
 
 // Data classes for Socket.IO

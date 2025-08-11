@@ -272,6 +272,28 @@ public class SpiralAnimationController : MonoBehaviour
         
         Debug.Log("=== SPIRAL ANIMATION COMPLETE! ===");
         isAnimating = false;
+        
+        // Notify GameManager that animation is complete (if method exists)
+        if (gameManager != null)
+        {
+            try
+            {
+                var method = gameManager.GetType().GetMethod("OnSpiralAnimationComplete");
+                if (method != null)
+                {
+                    method.Invoke(gameManager, null);
+                    Debug.Log("✅ Notified GameManager of animation completion");
+                }
+                else
+                {
+                    Debug.Log("⚠️ OnSpiralAnimationComplete method not found in GameManager");
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"⚠️ Could not notify GameManager: {e.Message}");
+            }
+        }
     }
     
     /// <summary>

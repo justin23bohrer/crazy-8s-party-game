@@ -15,6 +15,7 @@ function GameScreen({ gameData, onLeave, socketService }) {
   const [pendingEight, setPendingEight] = useState(null);
   const [isFirstPlayer, setIsFirstPlayer] = useState(false);
   const [eightCardColors, setEightCardColors] = useState(new Map()); // Track chosen colors for 8 cards
+  const [isAnimating, setIsAnimating] = useState(false); // Track if spiral animation is playing
 
   useEffect(() => {
     // Check if this player is the first player based on gameData
@@ -74,10 +75,13 @@ function GameScreen({ gameData, onLeave, socketService }) {
 
   const handleColorChosen = (data) => { // Changed from handleSuitChosen to handleColorChosen
     console.log('Color chosen:', data);
-    setMessage(`${data.playerName} chose ${getColorEmoji(data.color)}`); // Changed to use color and color emoji
+    setMessage(`${data.playerName} chose ${getColorEmoji(data.color)} - Watch the main screen! 🎬`); // Enhanced message
     setCurrentColor(data.color); // Changed from setCurrentSuit to setCurrentColor
     setShowColorSelector(false); // Changed from setShowSuitSelector to setShowColorSelector
     setPendingEight(null);
+    
+    // Set animation state immediately when color is chosen
+    setIsAnimating(true);
     
     // Update the 8 card color tracking
     if (data.card && data.card.rank === '8') {
@@ -126,6 +130,20 @@ function GameScreen({ gameData, onLeave, socketService }) {
       setCurrentColor(gameState.currentColor); // Changed from setCurrentSuit to setCurrentColor
     }
     
+    // Track animation state from server
+    if (gameState.isAnimating !== undefined) {
+      console.log('📱 Animation state received:', gameState.isAnimating);
+      setIsAnimating(gameState.isAnimating);
+      if (gameState.isAnimating) {
+        setMessage('🎬 Spectacular animation playing on main screen... Please wait!');
+        console.log('🚫 UI locked - animation in progress');
+      } else if (isAnimating && !gameState.isAnimating) {
+        // Animation just finished
+        setMessage('✨ Animation complete! Continue playing!');
+        console.log('✅ UI unlocked - animation complete');
+      }
+    }
+    
     if (gameState.currentPlayer !== undefined) {
       // Convert player index to player name
       if (typeof gameState.currentPlayer === 'number' && gameState.players) {
@@ -149,6 +167,11 @@ function GameScreen({ gameData, onLeave, socketService }) {
   const playCard = async (card) => {
     if (!isPlayerTurn) {
       setError("It's not your turn!");
+      return;
+    }
+
+    if (isAnimating) {
+      setError("Please wait for the animation to complete!");
       return;
     }
 
@@ -209,6 +232,11 @@ function GameScreen({ gameData, onLeave, socketService }) {
       return;
     }
 
+    if (isAnimating) {
+      setError("Please wait for the animation to complete!");
+      return;
+    }
+
     try {
       setError(null);
       socketService.emitGameAction('draw-card', {
@@ -265,7 +293,7 @@ function GameScreen({ gameData, onLeave, socketService }) {
   };
 
   const canPlayCard = (card) => {
-    if (!topCard || !isPlayerTurn) return false;
+    if (!topCard || !isPlayerTurn || isAnimating) return false; // Block actions during spiral animation
     
     // 8s can always be played
     if (card.rank === '8') return true;
@@ -330,7 +358,7 @@ function GameScreen({ gameData, onLeave, socketService }) {
   );
 
   const renderPlayingScreen = () => (
-    <div className="game-content playing">
+    <div className={`game-content playing ${isAnimating ? 'animation-locked' : ''}`}>
       <div className="game-header">
         <div className="game-info">
           <span className="turn-info">
@@ -402,6 +430,7 @@ function GameScreen({ gameData, onLeave, socketService }) {
             <button 
               onClick={drawCard}
               className="draw-button"
+              disabled={isAnimating} // Disable drawing during animations
             >
               Draw Card
             </button>

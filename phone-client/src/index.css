@@ -876,3 +876,34 @@ html, body {
     font-size: 1.5rem;
   }
 }
+
+/* Animation Lock Styles - Visual feedback when UI is locked during animations */
+.game-content.animation-locked {
+  opacity: 0.6;
+  pointer-events: none;
+  position: relative;
+}
+
+.game-content.animation-locked::before {
+  content: '🎬 Animation in progress...';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 20px 30px;
+  border-radius: 15px;
+  font-size: 1.2rem;
+  font-weight: bold;
+  z-index: 1000;
+  text-align: center;
+  min-width: 200px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.game-content.animation-locked .card,
+.game-content.animation-locked .draw-button {
+  cursor: not-allowed !important;
+  opacity: 0.4 !important;
+}

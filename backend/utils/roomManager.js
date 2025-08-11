@@ -35,7 +35,9 @@ class RoomManager {
         currentColor: null, // Changed from currentSuit to currentColor
         chosenColor: null, // Changed from chosenSuit to chosenColor - When an 8 is played
         lastPlayedCard: null,
-        turnCount: 0
+        turnCount: 0,
+        isAnimating: false, // Track if spiral animation is playing - blocks all player actions
+        animationEndTime: null // When animation will end
       },
       created: new Date(),
       maxPlayers: 6 // Reasonable limit for Crazy 8s
@@ -95,6 +97,11 @@ class RoomManager {
       return { success: false, error: 'Game not in progress' };
     }
 
+    // Check if spiral animation is blocking actions
+    if (this.isAnimationBlocking(room)) {
+      return { success: false, error: 'Please wait for the animation to complete' };
+    }
+
     const playerIndex = this.getPlayerIndex(room, playerId);
     if (playerIndex === -1) {
       return { success: false, error: 'Player not found' };
@@ -114,6 +121,45 @@ class RoomManager {
       default:
         return { success: false, error: 'Unknown action type' };
     }
+  }
+
+  // Check if spiral animation is currently blocking player actions
+  isAnimationBlocking(room) {
+    if (!room.gameState.isAnimating) {
+      return false;
+    }
+
+    // Check if animation should have ended by now
+    if (room.gameState.animationEndTime && Date.now() > room.gameState.animationEndTime) {
+      // Animation time expired, clear the lock
+      room.gameState.isAnimating = false;
+      room.gameState.animationEndTime = null;
+      console.log('🎬 Animation lock expired and cleared');
+      return false;
+    }
+
+    // Animation is still active
+    return true;
+  }
+
+  // Start spiral animation lock (called when 8 card color is chosen)
+  startAnimationLock(roomCode, durationMs = 3300) { // 3.3 seconds for spiral animation
+    const room = this.rooms.get(roomCode);
+    if (!room) return;
+
+    room.gameState.isAnimating = true;
+    room.gameState.animationEndTime = Date.now() + durationMs;
+    console.log(`🎬 Started animation lock for ${durationMs}ms in room ${roomCode}`);
+  }
+
+  // Clear animation lock (can be called manually if needed)
+  clearAnimationLock(roomCode) {
+    const room = this.rooms.get(roomCode);
+    if (!room) return;
+
+    room.gameState.isAnimating = false;
+    room.gameState.animationEndTime = null;
+    console.log(`🎬 Cleared animation lock in room ${roomCode}`);
   }
 
   // Start Crazy 8s game
@@ -276,6 +322,9 @@ class RoomManager {
     room.gameState.chosenColor = color; // Changed from chosenSuit to chosenColor
     room.gameState.currentColor = color; // Changed from currentSuit to currentColor
 
+    // NOTE: Animation lock is now handled in server.js before sending updates
+    // This ensures the lock is set before any game state updates reach players
+
     // Move to next player
     room.gameState.currentPlayer = this.gameLogic.getNextPlayer(
       room.gameState.currentPlayer, 
@@ -330,7 +379,8 @@ class RoomManager {
       })),
       canDraw: room.gameState.deck?.length > 0,
       isYourTurn: playerIndex === room.gameState.currentPlayer,
-      needSuitChoice: false // Will be set true when an 8 is played
+      needSuitChoice: false, // Will be set true when an 8 is played
+      isAnimating: room.gameState.isAnimating || false // Include animation state for UI blocking
     };
   }
 
@@ -409,7 +459,8 @@ class RoomManager {
       players: Array.from(room.players.values()).map(p => ({
         name: p.name,
         cardCount: p.cardCount
-      }))
+      })),
+      isAnimating: room.gameState.isAnimating || false // Include animation state
     };
   }
 }

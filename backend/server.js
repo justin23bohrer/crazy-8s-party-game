@@ -178,6 +178,16 @@ io.on('connection', (socket) => {
   socket.on('player-action', (data, callback) => {
     try {
       const { roomCode, action } = data;
+      const room = roomManager.rooms.get(roomCode);
+      if (!room) return;
+      
+      // CHECK: Block player actions during animation
+      if (roomManager.isAnimationBlocking(room)) {
+        console.log('🚫 Blocking player action - animation in progress');
+        callback({ success: false, error: 'Animation in progress' });
+        return;
+      }
+      
       const result = roomManager.handlePlayerAction(roomCode, socket.id, action);
       
       if (result.success) {
@@ -218,6 +228,12 @@ io.on('connection', (socket) => {
       const room = roomManager.rooms.get(roomCode);
       if (!room) return;
 
+      // CHECK: Block card playing during animation
+      if (roomManager.isAnimationBlocking(room)) {
+        console.log('🚫 Blocking card play - animation in progress');
+        return; // Silently reject the play
+      }
+
       const playerIndex = roomManager.getPlayerIndex(room, socket.id);
       if (playerIndex === -1) return;
 
@@ -228,6 +244,24 @@ io.on('connection', (socket) => {
       const result = roomManager.handlePlayCard(room, playerIndex, cardIndex, chosenColor); // Pass chosenColor to handlePlayCard
       
       if (result.success) {
+        // CRITICAL: If an 8 was played, set animation lock IMMEDIATELY
+        if (card.rank === '8') {
+          console.log('🎬 8 card played - setting animation lock IMMEDIATELY');
+          roomManager.startAnimationLock(roomCode, 3300); // 3.3 seconds for spiral animation
+          
+          // Send animation lock state to all players IMMEDIATELY
+          for (const [playerId] of room.players) {
+            const playerSocket = io.sockets.sockets.get(playerId);
+            if (playerSocket) {
+              const playerGameState = roomManager.getGameStateForPlayer(roomCode, playerId);
+              playerSocket.emit('game-state-updated', {
+                ...playerGameState,
+                isAnimating: true // Explicitly set this to ensure it's received
+              });
+            }
+          }
+        }
+
         // If an 8 was played with a chosen color, emit color-chosen event
         if (card.rank === '8' && chosenColor) {
           io.to(roomCode).emit('color-chosen', {
@@ -279,6 +313,12 @@ io.on('connection', (socket) => {
       const room = roomManager.rooms.get(roomCode);
       if (!room) return;
 
+      // CHECK: Block card drawing during animation
+      if (roomManager.isAnimationBlocking(room)) {
+        console.log('🚫 Blocking card draw - animation in progress');
+        return; // Silently reject the draw
+      }
+
       const playerIndex = roomManager.getPlayerIndex(room, socket.id);
       if (playerIndex === -1) return;
 
@@ -316,14 +356,16 @@ io.on('connection', (socket) => {
       room.gameState.chosenColor = color; // Changed from chosenSuit to chosenColor
       room.gameState.currentColor = color; // Changed from currentSuit to currentColor
 
-      // Notify all players about the color choice
+      // NOTE: Animation lock is already set when the 8 card was played
+
+      // Notify all players about the color choice (includes animation state)
       io.to(roomCode).emit('color-chosen', { // Changed from suit-chosen to color-chosen
         playerName: room.players.get(socket.id).name,
         color: color, // Changed from suit to color
         gameState: roomManager.getMainScreenGameState(room)
       });
 
-      // Send updated game state to each player individually
+      // Send updated game state to each player individually (includes animation lock)
       for (const [playerId] of room.players) {
         const playerSocket = io.sockets.sockets.get(playerId);
         if (playerSocket) {
@@ -335,6 +377,41 @@ io.on('connection', (socket) => {
       }
     } catch (error) {
       console.error('Error choosing color:', error);
+    }
+  });
+
+  // Handle animation completion from Unity main screen
+  socket.on('animation-complete', () => {
+    console.log('🎬 Animation completion received from Unity main screen');
+    
+    try {
+      const roomCode = Array.from(roomManager.rooms.keys()).find(code => {
+        const room = roomManager.rooms.get(code);
+        return room && room.gameState.isAnimating;
+      });
+      
+      if (roomCode) {
+        console.log(`🎬 Clearing animation lock for room ${roomCode}`);
+        roomManager.clearAnimationLock(roomCode);
+        
+        // Send updated game state to all players to unlock their UI
+        const room = roomManager.rooms.get(roomCode);
+        if (room) {
+          for (const [playerId] of room.players) {
+            const playerSocket = io.sockets.sockets.get(playerId);
+            if (playerSocket) {
+              const playerGameState = roomManager.getGameStateForPlayer(roomCode, playerId);
+              playerSocket.emit('game-state-updated', {
+                gameState: playerGameState
+              });
+            }
+          }
+        }
+      } else {
+        console.log('🎬 No active animation found to clear');
+      }
+    } catch (error) {
+      console.error('Error handling animation completion:', error);
     }
   });
 
