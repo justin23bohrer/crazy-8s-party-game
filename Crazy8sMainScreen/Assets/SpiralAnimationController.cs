@@ -561,26 +561,43 @@ public class SpiralAnimationController : MonoBehaviour
         // No delay - begin changing color right as spiral animation starts
         yield return new WaitForSeconds(0f);
         
-        // Get the target color based on card color string - use GameManager's colors for consistency
-        Color targetColor = gameManager.GetBackgroundColor(targetCard.color);
+        // Use GameManager's method to ensure consistent color blending (same as normal cards)
         Color startColor = gameManager.colorChangerBackground.color;
         
-        // Animate the background color transition
-        float elapsedTime = 0f;
-        while (elapsedTime < backgroundColorTransitionDuration)
+        // Get target color using the same method as normal cards
+        var changeBackgroundMethod = gameManager.GetType().GetMethod("ChangeBackgroundToCardColor", 
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        
+        if (changeBackgroundMethod != null)
         {
-            elapsedTime += Time.deltaTime;
-            float progress = elapsedTime / backgroundColorTransitionDuration;
+            // Animate the background color transition by gradually calling ChangeBackgroundToCardColor
+            float elapsedTime = 0f;
+            while (elapsedTime < backgroundColorTransitionDuration)
+            {
+                elapsedTime += Time.deltaTime;
+                float progress = elapsedTime / backgroundColorTransitionDuration;
+                
+                // At the end of animation, apply the final color using the same method as normal cards
+                if (progress >= 1f)
+                {
+                    changeBackgroundMethod.Invoke(gameManager, new object[] { targetCard.color });
+                    break;
+                }
+                
+                yield return null;
+            }
             
-            // Smooth transition using Lerp
-            gameManager.colorChangerBackground.color = Color.Lerp(startColor, targetColor, progress);
-            
-            yield return null;
+            // Ensure final color is set using the exact same method as normal cards
+            changeBackgroundMethod.Invoke(gameManager, new object[] { targetCard.color });
+        }
+        else
+        {
+            Debug.LogWarning("Could not find ChangeBackgroundToCardColor method - using fallback");
+            // Fallback: use the direct method call
+            Color targetColor = gameManager.GetBackgroundColor(targetCard.color);
+            gameManager.colorChangerBackground.color = targetColor;
         }
         
-        // Ensure final color is set exactly
-        gameManager.colorChangerBackground.color = targetColor;
-        
-        Debug.Log("✅ Background color animation completed");
+        Debug.Log("✅ Background color animation completed using same method as normal cards");
     }
 }

@@ -39,10 +39,13 @@ public class GameManager : MonoBehaviour
     public MonoBehaviour spiralAnimationController; // Reference to the spectacular spiral animation system
     
     [Header("Card Colors for Background")]
-    public Color redColor = new Color(0.8f, 0.1f, 0.1f, 0.7f);
-    public Color blueColor = new Color(0.1f, 0.1f, 0.8f, 0.7f);
-    public Color greenColor = new Color(0.1f, 0.6f, 0.1f, 0.7f);
-    public Color yellowColor = new Color(0.8f, 0.8f, 0.1f, 0.7f);
+    public Color redColor = new Color(0.6f, 0.08f, 0.08f, 0.8f);
+    public Color blueColor = new Color(0.08f, 0.08f, 0.6f, 0.8f);
+    public Color greenColor = new Color(0.08f, 0.4f, 0.08f, 0.8f);
+    public Color yellowColor = new Color(0.6f, 0.6f, 0.08f, 0.8f);
+    
+    [Header("Gradual Color Transitions")]
+    public float normalCardColorTransitionDuration = 1.5f; // How long normal card color changes take
     
     [Header("Game Over UI")]
     public TextMeshProUGUI winnerText;
@@ -55,6 +58,9 @@ public class GameManager : MonoBehaviour
     private string roomCode;
     private List<PlayerData> players = new List<PlayerData>();
     private bool isFirstPlayer = false;
+    
+    // Gradual color transition tracking
+    private Coroutine currentColorTransition = null;
     
     // Queue for main thread actions
     private Queue<System.Action> mainThreadActions = new Queue<System.Action>();
@@ -2106,6 +2112,7 @@ public class GameManager : MonoBehaviour
     // Track if we have a chosen color for the current 8 card
     private string chosenEightCardColor = null;
     private bool isWaitingForEightCardAnimation = false;
+    private string currentEightCardFinalColor = null; // Stores the final color of the current 8 card after animation
     
     void UpdateTopCard(string cardValue)
     {
@@ -2136,11 +2143,19 @@ public class GameManager : MonoBehaviour
                 {
                     chosenEightCardColor = null;
                     isWaitingForEightCardAnimation = false;
+                    currentEightCardFinalColor = null; // Clear final color when top card changes to non-8
                     Debug.Log("Reset chosen 8 card color (new card is not an 8)");
                 }
                 
-                // SIMPLIFIED 8 CARD HANDLING: Show card for 1 second, then animate to chosen color
-                if (cardData.value == 8 && chosenEightCardColor != null && !isWaitingForEightCardAnimation)
+                // SIMPLIFIED 8 CARD HANDLING: Check final color first, then pending animation, then default
+                if (cardData.value == 8 && currentEightCardFinalColor != null)
+                {
+                    // 8 card has already been processed and has a final color - keep it that way
+                    Debug.Log($"=== PRESERVING 8 CARD FINAL COLOR: {currentEightCardFinalColor} ===");
+                    cardController.SetCard(currentEightCardFinalColor, 8, true); // Force the final color
+                    Debug.Log($"8 card kept in final color state: {currentEightCardFinalColor}");
+                }
+                else if (cardData.value == 8 && chosenEightCardColor != null && !isWaitingForEightCardAnimation)
                 {
                     Debug.Log($"=== 8 CARD WITH CHOSEN COLOR DETECTED ===");
                     Debug.Log($"8 card will be shown for 1 second, then animated to: {chosenEightCardColor}");
@@ -2283,9 +2298,13 @@ public class GameManager : MonoBehaviour
             Debug.Log($"Directly set card to {targetColor} 8");
         }
         
-        // Reset the waiting flag
+        // Reset the waiting flag and clear chosen color to prevent re-animation
         isWaitingForEightCardAnimation = false;
+        currentEightCardFinalColor = targetColor; // Store the final color so card stays that way
+        chosenEightCardColor = null;
         Debug.Log("=== DELAYED 8 CARD ANIMATION SEQUENCE COMPLETE ===");
+        Debug.Log($"Stored final color: {currentEightCardFinalColor} to preserve 8 card appearance");
+        Debug.Log("Cleared chosenEightCardColor to prevent re-animation on future events");
     }
     
     // Helper method to parse card strings like "J of hearts", "8 of hearts", "A of spades"
@@ -2370,12 +2389,51 @@ public class GameManager : MonoBehaviour
             return;
         }
         
-        Color newBackgroundColor = GetBackgroundColor(cardColor);
-        Debug.Log("Changing background to " + cardColor + " color: " + newBackgroundColor);
+        // Stop any previous color transition
+        if (currentColorTransition != null)
+        {
+            StopCoroutine(currentColorTransition);
+            currentColorTransition = null;
+        }
         
-        // Apply the color with 70% opacity by lerping with the original color
-        Color finalColor = Color.Lerp(originalBackgroundColor, newBackgroundColor, 0.7f);
-        colorChangerBackground.color = finalColor;
+        // Start gradual color transition
+        Color targetColor = GetBackgroundColor(cardColor);
+        Color finalColor = Color.Lerp(originalBackgroundColor, targetColor, 0.7f);
+        
+        Debug.Log($"Starting gradual background change to {cardColor} over {normalCardColorTransitionDuration} seconds");
+        currentColorTransition = StartCoroutine(GradualColorTransition(finalColor));
+    }
+    
+    /// <summary>
+    /// Smoothly transitions the background color over time (like moving a color wheel)
+    /// </summary>
+    private System.Collections.IEnumerator GradualColorTransition(Color targetColor)
+    {
+        Color startColor = colorChangerBackground.color;
+        float elapsedTime = 0f;
+        
+        Debug.Log($"Gradual transition: {startColor} → {targetColor}");
+        
+        while (elapsedTime < normalCardColorTransitionDuration)
+        {
+            elapsedTime += Time.deltaTime;
+            float progress = elapsedTime / normalCardColorTransitionDuration;
+            
+            // Use smooth easing for more natural color wheel feel
+            float easedProgress = Mathf.SmoothStep(0f, 1f, progress);
+            
+            // Interpolate between start and target colors
+            Color currentColor = Color.Lerp(startColor, targetColor, easedProgress);
+            colorChangerBackground.color = currentColor;
+            
+            yield return null;
+        }
+        
+        // Ensure we end exactly at the target color
+        colorChangerBackground.color = targetColor;
+        currentColorTransition = null;
+        
+        Debug.Log("Gradual color transition complete");
     }
     
     void ResetBackgroundColor()

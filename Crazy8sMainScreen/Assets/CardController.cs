@@ -47,10 +47,10 @@ public class CardController : MonoBehaviour
     public Image cardBackground;
     
     [Header("Color Settings")]
-    public Color redColor = new Color(0.8f, 0.1f, 0.1f);
-    public Color blueColor = new Color(0.1f, 0.1f, 0.8f);
-    public Color greenColor = new Color(0.1f, 0.6f, 0.1f);
-    public Color yellowColor = new Color(0.8f, 0.8f, 0.1f);
+    public Color redColor = new Color(0.6f, 0.08f, 0.08f);
+    public Color blueColor = new Color(0.08f, 0.08f, 0.6f);
+    public Color greenColor = new Color(0.08f, 0.4f, 0.08f);
+    public Color yellowColor = new Color(0.6f, 0.6f, 0.08f);
     
     [Header("Special 8 Card Settings")]
     public Sprite eightCardSprite; // Drag your custom image here
@@ -336,7 +336,7 @@ public class CardController : MonoBehaviour
         Debug.Log("=== FORCE RESETTING CARD TO YELLOW 8 ===");
         
         // Force everything to yellow manually
-        Color yellowColor = new Color(0.8f, 0.8f, 0.1f);
+        Color yellowColor = new Color(0.6f, 0.6f, 0.08f);
         
         if (cardValueTop != null)
         {
@@ -491,7 +491,7 @@ public class CardController : MonoBehaviour
     {
         switch (value)
         {
-            case 1: return "A";
+            case 1: return "1";  // Keep 1 as 1, not A
             case 11: return "J";
             case 12: return "Q";
             case 13: return "K";

@@ -135,11 +135,12 @@ function GameScreen({ gameData, onLeave, socketService }) {
       console.log('📱 Animation state received:', gameState.isAnimating);
       setIsAnimating(gameState.isAnimating);
       if (gameState.isAnimating) {
-        setMessage('🎬 Spectacular animation playing on main screen... Please wait!');
         console.log('🚫 UI locked - animation in progress');
+        // Close color selector if animation starts
+        setShowColorSelector(false);
+        setPendingEight(null);
       } else if (isAnimating && !gameState.isAnimating) {
         // Animation just finished
-        setMessage('✨ Animation complete! Continue playing!');
         console.log('✅ UI unlocked - animation complete');
       }
     }
@@ -197,6 +198,11 @@ function GameScreen({ gameData, onLeave, socketService }) {
 
   const chooseColor = async (color) => { // Changed from chooseSuit to chooseColor and suit to color
     if (!pendingEight) return;
+
+    if (isAnimating) {
+      setError("Please wait for the animation to complete!");
+      return;
+    }
 
     try {
       setError(null);
@@ -348,6 +354,7 @@ function GameScreen({ gameData, onLeave, socketService }) {
               key={color}
               className={`color-button ${color}`} // Changed from suit-button to color-button
               onClick={() => chooseColor(color)} // Changed from chooseSuit to chooseColor
+              disabled={isAnimating} // Disable color selection during animations
             >
               {getColorEmoji(color)} {/* Changed from getSuitSymbol to getColorEmoji */}
             </button>
@@ -368,14 +375,14 @@ function GameScreen({ gameData, onLeave, socketService }) {
             Current: {currentColor ? getColorEmoji(currentColor) : 'Any'} {/* Changed from currentSuit to currentColor and getSuitSymbol to getColorEmoji */}
           </span>
         </div>
-        <button onClick={onLeave} className="leave-button">Leave</button>
+        <button 
+          onClick={onLeave} 
+          className="leave-button"
+          disabled={isAnimating} // Disable leave button during animations
+        >
+          Leave
+        </button>
       </div>
-      
-      {message && (
-        <div className="game-message">
-          {message}
-        </div>
-      )}
       
       {error && (
         <div className="error-display">
@@ -438,7 +445,7 @@ function GameScreen({ gameData, onLeave, socketService }) {
         )}
       </div>
       
-      {showColorSelector && renderColorSelector()}
+      {showColorSelector && !isAnimating && renderColorSelector()}
     </div>
   );
 
