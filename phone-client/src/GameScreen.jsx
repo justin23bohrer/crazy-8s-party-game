@@ -14,6 +14,7 @@ function GameScreen({ gameData, onLeave, socketService }) {
   const [showColorSelector, setShowColorSelector] = useState(false); // Changed from showSuitSelector to showColorSelector
   const [pendingEight, setPendingEight] = useState(null);
   const [isFirstPlayer, setIsFirstPlayer] = useState(false);
+  const [eightCardColors, setEightCardColors] = useState(new Map()); // Track chosen colors for 8 cards
 
   useEffect(() => {
     // Check if this player is the first player based on gameData
@@ -77,6 +78,17 @@ function GameScreen({ gameData, onLeave, socketService }) {
     setCurrentColor(data.color); // Changed from setCurrentSuit to setCurrentColor
     setShowColorSelector(false); // Changed from setShowSuitSelector to setShowColorSelector
     setPendingEight(null);
+    
+    // Update the 8 card color tracking
+    if (data.card && data.card.rank === '8') {
+      setEightCardColors(prev => {
+        const newMap = new Map(prev);
+        const cardKey = `${data.card.color}-${data.card.rank}`;
+        newMap.set(cardKey, data.color);
+        return newMap;
+      });
+    }
+    
     updateGameState(data.gameState);
   };
 
@@ -166,17 +178,24 @@ function GameScreen({ gameData, onLeave, socketService }) {
     try {
       setError(null);
       
-      // First play the 8
-      socketService.emitGameAction('play-card', {
-        roomCode: gameData.roomCode,
-        card: pendingEight
+      // Track this 8 card's chosen color immediately for local state
+      setEightCardColors(prev => {
+        const newMap = new Map(prev);
+        const cardKey = `${pendingEight.color}-${pendingEight.rank}`;
+        newMap.set(cardKey, color);
+        return newMap;
       });
       
-      // Then choose the color
-      socketService.emitGameAction('choose-color', { // Changed from choose-suit to choose-color
+      // Play the 8 with the chosen color
+      socketService.emitGameAction('play-card', {
         roomCode: gameData.roomCode,
-        color: color // Changed from suit to color
+        card: pendingEight,
+        chosenColor: color // Include the chosen color with the card play
       });
+      
+      // Reset the color selector state
+      setShowColorSelector(false);
+      setPendingEight(null);
       
     } catch (error) {
       console.error('Failed to choose color:', error); // Changed error message
@@ -234,6 +253,17 @@ function GameScreen({ gameData, onLeave, socketService }) {
     return color;
   };
 
+  // Helper function to get hex color values for styling
+  const getCardColorHex = (color) => {
+    const colorMap = {
+      'red': '#ff4444',
+      'blue': '#4444ff', 
+      'green': '#44aa44',
+      'yellow': '#ffd700'
+    };
+    return colorMap[color] || '#000000';
+  };
+
   const canPlayCard = (card) => {
     if (!topCard || !isPlayerTurn) return false;
     
@@ -242,6 +272,12 @@ function GameScreen({ gameData, onLeave, socketService }) {
     
     // Match color or rank
     return card.color === currentColor || card.rank === topCard.rank; // Changed from suit to color and currentSuit to currentColor
+  };
+
+  // Helper function to get the display color for an 8 card
+  const getEightCardDisplayColor = (card) => {
+    const cardKey = `${card.color}-${card.rank}`;
+    return eightCardColors.get(cardKey) || null; // Returns chosen color or null if not chosen yet
   };
 
   const renderWaitingScreen = () => (
@@ -323,18 +359,41 @@ function GameScreen({ gameData, onLeave, socketService }) {
         <div className="player-hand">
           <h3>Your Hand ({playerHand.length} cards):</h3>
           <div className="cards">
-            {playerHand.map((card, index) => (
-              <button
-                key={`${card.color}-${card.rank}-${index}`}
-                className={`card ${getCardColor(card.color)} ${canPlayCard(card) ? 'playable' : 'unplayable'}`}
-                onClick={() => playCard(card)}
-                disabled={!canPlayCard(card)}
-              >
-                <div className="card-inner">
-                  <div className="card-number">{card.rank}</div>
-                </div>
-              </button>
-            ))}
+            {playerHand.map((card, index) => {
+              const is8Card = card.rank === '8';
+              const chosenColor = is8Card ? getEightCardDisplayColor(card) : null;
+              
+              let cardClassName;
+              if (is8Card && chosenColor) {
+                // 8 card with chosen color - show as regular colored card
+                cardClassName = `card ${chosenColor}`;
+              } else if (is8Card) {
+                // 8 card without chosen color - show spiral
+                cardClassName = `card eight-card`;
+              } else {
+                // Regular card
+                cardClassName = `card ${getCardColor(card.color)}`;
+              }
+              
+              return (
+                <button
+                  key={`${card.color}-${card.rank}-${index}`}
+                  className={`${cardClassName} ${canPlayCard(card) ? 'playable' : 'unplayable'}`}
+                  onClick={() => playCard(card)}
+                  disabled={!canPlayCard(card)}
+                >
+                  <div className="card-inner">
+                    {is8Card && !chosenColor ? (
+                      <div className="eight-card-content">
+                        <div className="eight-card-number">8</div>
+                      </div>
+                    ) : (
+                      <div className="card-number">{card.rank}</div>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
         

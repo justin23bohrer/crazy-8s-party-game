@@ -52,6 +52,10 @@ public class CardController : MonoBehaviour
     public Color greenColor = new Color(0.1f, 0.6f, 0.1f);
     public Color yellowColor = new Color(0.8f, 0.8f, 0.1f);
     
+    [Header("Special 8 Card Settings")]
+    public Sprite eightCardSprite; // Drag your custom image here
+    public Color eightCardTextColor = Color.black; // Black text for 8s
+    
     void Start()
     {
         Debug.Log("=== CardController Start() ===");
@@ -109,12 +113,25 @@ public class CardController : MonoBehaviour
     
     public void SetCard(string color, int value)
     {
+        SetCard(color, value, false); // Default to not forcing color for 8s
+    }
+    
+    public void SetCard(string color, int value, bool forceColorFor8s)
+    {
         Debug.Log($"=== SetCard called: {GetCardDisplayValue(value)} of {color} ===");
         
-        // Get display value and color
+        // Get display value
         string displayValue = GetCardDisplayValue(value);
-        Color cardColor = GetCardColor(color);
         
+        // Special handling for 8s (wild cards) - unless we're forcing the color
+        if (value == 8 && !forceColorFor8s)
+        {
+            SetEightCard(displayValue);
+            return;
+        }
+        
+        // Regular card handling (or forced color for 8s)
+        Color cardColor = GetCardColor(color);
         Debug.Log($"Display value: {displayValue}, Card Color: {cardColor}");
         
         // Set all text elements to the card color (they will show on the white circle)
@@ -162,8 +179,25 @@ public class CardController : MonoBehaviour
         // Set the inner card (black area) to the card color
         if (innerCard != null)
         {
-            innerCard.color = cardColor;
-            Debug.Log("Set innerCard color: " + cardColor);
+            // For forced 8 card colors, use aggressive reset
+            if (value == 8 && forceColorFor8s)
+            {
+                Debug.Log("Using aggressive reset for forced 8 card color");
+                ForceResetImageComponent(innerCard, cardColor);
+            }
+            else
+            {
+                // CRITICAL: Always reset sprite first for regular cards
+                innerCard.sprite = null;
+                innerCard.color = cardColor;
+                
+                // ADDITIONAL FIX: Force the Image to use Image Type: Simple to ensure solid color shows
+                innerCard.type = Image.Type.Simple;
+                innerCard.preserveAspect = false;
+                
+                Debug.Log($"Set innerCard: sprite=null, color={cardColor}, type=Simple");
+                Debug.Log($"InnerCard final state: sprite={(innerCard.sprite == null ? "NULL" : innerCard.sprite.name)}, color={innerCard.color}, type={innerCard.type}");
+            }
         }
         else
         {
@@ -182,6 +216,223 @@ public class CardController : MonoBehaviour
         }
         
         Debug.Log($"=== SetCard complete ===");
+    }
+    
+    // Special method for setting up 8 cards with custom appearance
+    void SetEightCard(string displayValue)
+    {
+        Debug.Log("=== Setting up special 8 card ===");
+        
+        // Set all text elements to black
+        if (cardValueTop != null)
+        {
+            cardValueTop.text = displayValue;
+            cardValueTop.color = eightCardTextColor; // Black text
+        }
+        
+        if (cardValueBottom != null)
+        {
+            cardValueBottom.text = displayValue;
+            cardValueBottom.color = eightCardTextColor; // Black text
+        }
+        
+        if (cardValueCenter != null)
+        {
+            cardValueCenter.text = displayValue;
+            cardValueCenter.color = eightCardTextColor; // Black text
+        }
+        
+        // Keep the main card background white
+        if (cardBackground != null)
+        {
+            cardBackground.color = Color.white;
+        }
+        
+        // Set the inner card to show custom image
+        if (innerCard != null)
+        {
+            if (eightCardSprite != null)
+            {
+                // Use custom sprite for 8 cards
+                innerCard.sprite = eightCardSprite;
+                innerCard.color = Color.white; // White tint to show image normally
+                innerCard.type = Image.Type.Simple;
+                innerCard.preserveAspect = false;
+                Debug.Log("Set 8 card custom sprite");
+            }
+            else
+            {
+                // Fallback to black if no sprite assigned
+                innerCard.sprite = null;
+                innerCard.color = Color.black;
+                innerCard.type = Image.Type.Simple;
+                innerCard.preserveAspect = false;
+                Debug.LogWarning("No eightCardSprite assigned, using black background");
+            }
+        }
+        
+        // Set outline to black
+        if (cardOutline != null)
+        {
+            cardOutline.effectColor = Color.black;
+        }
+        
+        Debug.Log("=== Special 8 card setup complete ===");
+    }
+    
+    // Method to update an 8 card with a chosen color after color selection
+    public void SetEightCardWithColor(string chosenColor) // Public method for GameManager
+    {
+        Debug.Log($"=== Updating 8 card with chosen color: {chosenColor} ===");
+        
+        Color cardColor = GetCardColor(chosenColor);
+        
+        // Set all text elements to the chosen color
+        if (cardValueTop != null)
+        {
+            cardValueTop.text = "8";
+            cardValueTop.color = cardColor;
+        }
+        
+        if (cardValueBottom != null)
+        {
+            cardValueBottom.text = "8";
+            cardValueBottom.color = cardColor;
+        }
+        
+        if (cardValueCenter != null)
+        {
+            cardValueCenter.text = "8";
+            cardValueCenter.color = cardColor;
+        }
+        
+        // Keep the main card background white
+        if (cardBackground != null)
+        {
+            cardBackground.color = Color.white;
+        }
+        
+        // Set the inner card to the chosen color (remove spiral, show solid color)
+        if (innerCard != null)
+        {
+            innerCard.sprite = null; // Remove the spiral sprite
+            innerCard.color = cardColor; // Set to chosen color
+            Debug.Log("Set 8 card inner color to: " + cardColor);
+        }
+        
+        // Set outline to match chosen color
+        if (cardOutline != null)
+        {
+            cardOutline.effectColor = cardColor;
+        }
+        
+        Debug.Log($"=== 8 card updated to {chosenColor} color ===");
+    }
+    
+    // Public method to completely reset and force a card appearance - for debugging
+    [ContextMenu("Force Reset To Yellow 8")]
+    public void ForceResetToYellow8()
+    {
+        Debug.Log("=== FORCE RESETTING CARD TO YELLOW 8 ===");
+        
+        // Force everything to yellow manually
+        Color yellowColor = new Color(0.8f, 0.8f, 0.1f);
+        
+        if (cardValueTop != null)
+        {
+            cardValueTop.text = "8";
+            cardValueTop.color = yellowColor;
+            Debug.Log("FORCED cardValueTop to yellow 8");
+        }
+        
+        if (cardValueBottom != null)
+        {
+            cardValueBottom.text = "8";
+            cardValueBottom.color = yellowColor;
+            Debug.Log("FORCED cardValueBottom to yellow 8");
+        }
+        
+        if (cardValueCenter != null)
+        {
+            cardValueCenter.text = "8";
+            cardValueCenter.color = yellowColor;
+            Debug.Log("FORCED cardValueCenter to yellow 8");
+        }
+        
+        if (cardBackground != null)
+        {
+            cardBackground.color = Color.white;
+            Debug.Log("FORCED cardBackground to white");
+        }
+        
+        if (innerCard != null)
+        {
+            // AGGRESSIVE sprite clearing
+            ForceResetImageComponent(innerCard, yellowColor);
+            Debug.Log($"FORCED innerCard reset to yellow");
+        }
+        
+        if (cardOutline != null)
+        {
+            cardOutline.effectColor = yellowColor;
+            Debug.Log("FORCED outline to yellow");
+        }
+        
+        Debug.Log("=== FORCE RESET COMPLETE ===");
+    }
+    
+    // Helper method to aggressively reset an Image component
+    void ForceResetImageComponent(Image imageComponent, Color targetColor)
+    {
+        // Disable the component temporarily
+        imageComponent.enabled = false;
+        
+        // Clear sprite completely
+        imageComponent.sprite = null;
+        imageComponent.overrideSprite = null;
+        
+        // Reset image settings
+        imageComponent.type = Image.Type.Simple;
+        imageComponent.preserveAspect = false;
+        imageComponent.fillCenter = true;
+        
+        // Set color
+        imageComponent.color = targetColor;
+        
+        // ADDITIONAL: Force Unity to refresh the component
+        Canvas.ForceUpdateCanvases();
+        
+        // Re-enable
+        imageComponent.enabled = true;
+        
+        Debug.Log($"ForceResetImageComponent: sprite={(imageComponent.sprite == null ? "NULL" : imageComponent.sprite.name)}, color={imageComponent.color}, enabled={imageComponent.enabled}");
+    }
+    
+    // Diagnostic method to check current card state
+    [ContextMenu("Diagnose Current Card State")]
+    public void DiagnoseCurrentCardState()
+    {
+        Debug.Log("=== CARD STATE DIAGNOSIS ===");
+        Debug.Log($"eightCardSprite assigned: {eightCardSprite != null}");
+        if (eightCardSprite != null)
+        {
+            Debug.Log($"eightCardSprite name: {eightCardSprite.name}");
+        }
+        
+        if (innerCard != null)
+        {
+            Debug.Log($"innerCard.sprite: {(innerCard.sprite == null ? "NULL" : innerCard.sprite.name)}");
+            Debug.Log($"innerCard.color: {innerCard.color}");
+            Debug.Log($"innerCard.type: {innerCard.type}");
+            Debug.Log($"innerCard.enabled: {innerCard.enabled}");
+            Debug.Log($"innerCard.preserveAspect: {innerCard.preserveAspect}");
+        }
+        else
+        {
+            Debug.Log("innerCard is NULL");
+        }
+        
+        Debug.Log("=== END DIAGNOSIS ===");
     }
     
     // Add test methods for easy testing
@@ -207,6 +458,24 @@ public class CardController : MonoBehaviour
     void TestYellowCard()
     {
         SetCard("yellow", 5); // 5 of Yellow
+    }
+    
+    [ContextMenu("Test Special 8 Card")]
+    void TestSpecialEightCard()
+    {
+        SetCard("red", 8); // Test the special 8 card appearance
+    }
+    
+    [ContextMenu("Test 8 Card with Yellow Color")]
+    void TestEightCardWithYellow()
+    {
+        SetCard("yellow", 8, true); // Test 8 card forced to yellow
+    }
+    
+    [ContextMenu("Test 8 Card with Red Color")]
+    void TestEightCardWithRed()
+    {
+        SetCard("red", 8, true); // Test 8 card forced to red
     }
     
     public void SetCard(CardData cardData)

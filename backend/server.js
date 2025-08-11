@@ -214,7 +214,7 @@ io.on('connection', (socket) => {
   // Crazy 8s specific events
   socket.on('play-card', (data) => {
     try {
-      const { roomCode, card } = data;
+      const { roomCode, card, chosenColor } = data; // Extract chosenColor from data
       const room = roomManager.rooms.get(roomCode);
       if (!room) return;
 
@@ -225,9 +225,19 @@ io.on('connection', (socket) => {
         c.color === card.color && c.rank === card.rank
       );
 
-      const result = roomManager.handlePlayCard(room, playerIndex, cardIndex);
+      const result = roomManager.handlePlayCard(room, playerIndex, cardIndex, chosenColor); // Pass chosenColor to handlePlayCard
       
       if (result.success) {
+        // If an 8 was played with a chosen color, emit color-chosen event
+        if (card.rank === '8' && chosenColor) {
+          io.to(roomCode).emit('color-chosen', {
+            playerName: room.players.get(socket.id).name,
+            color: chosenColor,
+            card: card,
+            gameState: roomManager.getMainScreenGameState(room)
+          });
+        }
+        
         // Notify all players about the card played
         io.to(roomCode).emit('card-played', {
           playerName: room.players.get(socket.id).name,

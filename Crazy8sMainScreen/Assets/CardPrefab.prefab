@@ -134,6 +134,8 @@ MonoBehaviour:
   blueColor: {r: 0.1, g: 0.1, b: 0.8, a: 1}
   greenColor: {r: 0.1, g: 0.6, b: 0.1, a: 1}
   yellowColor: {r: 0.8, g: 0.8, b: 0.1, a: 1}
+  eightCardSprite: {fileID: 21300000, guid: 01aa875e07227a342a8378ebba28a03a, type: 3}
+  eightCardTextColor: {r: 0, g: 0, b: 0, a: 1}
 --- !u!1 &3009866091571575322
 GameObject:
   m_ObjectHideFlags: 0

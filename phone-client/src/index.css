@@ -628,9 +628,84 @@ html, body {
   color: #ffd700;
 }
 
+/* Special 8 Card Styles */
+.game-screen.crazy-8s .card.eight-card {
+  background-image: url('/eight-card-spiral.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  border: 3px solid #333;
+}
+
+.game-screen.crazy-8s .card.eight-card .eight-card-content {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.game-screen.crazy-8s .card.eight-card .eight-card-number {
+  background: rgba(255, 255, 255, 0.95);
+  width: 45px;
+  height: 45px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: #000;
+  border: 2px solid #333;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  position: relative;
+  z-index: 2;
+}
+
 .game-screen.crazy-8s .card:hover {
   transform: translateY(-4px) scale(1.05);
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+}
+
+.game-screen.crazy-8s .card.eight-card:hover {
+  transform: translateY(-6px) scale(1.08);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4);
+  border-color: #555;
+}
+
+.game-screen.crazy-8s .card.eight-card.playable {
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
+  transform: scale(1.02);
+}
+
+.game-screen.crazy-8s .card.eight-card.playable:hover {
+  box-shadow: 0 8px 25px rgba(255, 215, 0, 0.6);
+}
+
+/* 8 Card after color selection - should look like regular cards */
+.game-screen.crazy-8s .card.eight-card.red {
+  background-color: #ff4444;
+  background-image: none; /* Remove spiral background */
+  border: 2px solid #cc0000;
+}
+
+.game-screen.crazy-8s .card.eight-card.blue {
+  background-color: #4444ff;
+  background-image: none;
+  border: 2px solid #0000cc;
+}
+
+.game-screen.crazy-8s .card.eight-card.green {
+  background-color: #44aa44;
+  background-image: none;
+  border: 2px solid #008800;
+}
+
+.game-screen.crazy-8s .card.eight-card.yellow {
+  background-color: #ffd700;
+  background-image: none;
+  border: 2px solid #ccaa00;
 }
 
 .game-screen.crazy-8s .card.playable {

@@ -31,6 +31,19 @@ public class GameManager : MonoBehaviour
     public Image topCardImage;
     public PlayerPositionManager playerPositionManager;
     
+    [Header("Background Effects")]
+    public Image colorChangerBackground; // Reference to the ColorChangerBackground Image
+    private Color originalBackgroundColor;
+    
+    [Header("8 Card Spiral Animation")]
+    public MonoBehaviour spiralAnimationController; // Reference to the spectacular spiral animation system
+    
+    [Header("Card Colors for Background")]
+    public Color redColor = new Color(0.8f, 0.1f, 0.1f, 0.7f);
+    public Color blueColor = new Color(0.1f, 0.1f, 0.8f, 0.7f);
+    public Color greenColor = new Color(0.1f, 0.6f, 0.1f, 0.7f);
+    public Color yellowColor = new Color(0.8f, 0.8f, 0.1f, 0.7f);
+    
     [Header("Game Over UI")]
     public TextMeshProUGUI winnerText;
     public Button playAgainButton;
@@ -50,6 +63,17 @@ public class GameManager : MonoBehaviour
     {
         Debug.Log("=== GAMEMANAGER START() BEGIN ===");
         
+        // CRITICAL FOR APPLE TV: Ensure the game runs independently of mouse/keyboard input
+        // This prevents Unity from throttling when there's no desktop interaction
+        Application.runInBackground = true;
+        Screen.sleepTimeout = SleepTimeout.NeverSleep;
+        Debug.Log("✅ APPLE TV MODE: Set runInBackground=true and sleepTimeout=NeverSleep");
+        
+        // Force Unity to maintain consistent frame rate regardless of input
+        Application.targetFrameRate = 60;
+        QualitySettings.vSyncCount = 0; // Disable VSync to ensure consistent updates
+        Debug.Log("✅ APPLE TV MODE: Set targetFrameRate=60, disabled VSync");
+        
         // Check if all references are assigned
         bool validationPassed = ValidateReferences();
         if (!validationPassed)
@@ -64,30 +88,98 @@ public class GameManager : MonoBehaviour
         // Clear any existing player cards from previous sessions
         ClearPlayersList();
         
+        // Initialize background Image for color effects
+        if (colorChangerBackground == null)
+        {
+            // Try to find it automatically
+            GameObject bgObject = GameObject.Find("ColorChangerBackground");
+            if (bgObject != null)
+            {
+                colorChangerBackground = bgObject.GetComponent<Image>();
+            }
+        }
+        
+        // Store original background color
+        if (colorChangerBackground != null)
+        {
+            originalBackgroundColor = colorChangerBackground.color;
+            Debug.Log("Stored original background color: " + originalBackgroundColor);
+        }
+        else
+        {
+            Debug.LogWarning("ColorChangerBackground Image not found for background effects");
+        }
+        
+        // Initialize Spiral Animation Controller for spectacular 8 card animations
+        Debug.Log("=== INITIALIZING SPIRAL ANIMATION CONTROLLER ===");
+        
+        if (spiralAnimationController == null)
+        {
+            Debug.Log("SpiralAnimationController field is null - searching for existing instances...");
+            
+            // Try to find it automatically using component name
+            MonoBehaviour[] allComponents = FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None);
+            Debug.Log($"Found {allComponents.Length} total MonoBehaviour components in scene");
+            
+            foreach (MonoBehaviour comp in allComponents)
+            {
+                Debug.Log($"Checking component: {comp.GetType().Name} on {comp.gameObject.name}");
+                if (comp.GetType().Name == "SpiralAnimationController")
+                {
+                    spiralAnimationController = comp;
+                    Debug.Log("✅ Found existing SpiralAnimationController!");
+                    break;
+                }
+            }
+            
+            if (spiralAnimationController == null)
+            {
+                Debug.Log("❌ No existing SpiralAnimationController found - creating one now...");
+                
+                // Create it immediately instead of waiting
+                if (TryCreateSpiralAnimationController())
+                {
+                    Debug.Log("✅ Successfully created SpiralAnimationController during initialization!");
+                }
+                else
+                {
+                    Debug.LogError("❌ Failed to create SpiralAnimationController during initialization!");
+                }
+            }
+            else
+            {
+                Debug.Log($"✅ SpiralAnimationController found: {spiralAnimationController.GetType().Name}");
+            }
+        }
+        else
+        {
+            Debug.Log($"✅ SpiralAnimationController already assigned: {spiralAnimationController.GetType().Name}");
+        }
+        
         // Set initial room code text
         if (roomCodeText != null)
         {
             roomCodeText.text = "----";
         }
         
-        // Set up button events with debugging
-        Debug.Log("Setting up button listeners...");
+        // Set up ESSENTIAL button - START BUTTON for room creation (Apple TV compatible)
+        Debug.Log("Setting up START BUTTON for room creation...");
         
         if (startScreenButton != null)
         {
             Debug.Log("StartScreenButton found, adding OnStartButtonClicked listener");
             startScreenButton.onClick.AddListener(() => {
-                Debug.Log("*** START BUTTON CLICK DETECTED ***");
+                Debug.Log("*** START BUTTON PRESSED - CREATING ROOM ***");
                 OnStartButtonClicked();
             });
             Debug.Log("StartScreenButton listener added successfully");
             
-            // Fix Canvas Group blocking issue - ALWAYS call this
-            FixCanvasGroupBlocking();
+            // APPLE TV: Ensure START button always works (critical for room creation)
+            EnsureStartButtonWorksForAppleTV();
         }
         else
         {
-            Debug.LogError("CRITICAL: StartScreenButton is NULL!");
+            Debug.LogError("CRITICAL: StartScreenButton is NULL! Cannot create rooms!");
         }
         
         if (playAgainButton != null)
@@ -111,6 +203,53 @@ public class GameManager : MonoBehaviour
         ConnectToServer();
         
         Debug.Log("=== GAMEMANAGER START() COMPLETE ===");
+    }
+    
+    /// <summary>
+    /// APPLE TV: Ensure START button works perfectly for room creation (critical functionality)
+    /// </summary>
+    void EnsureStartButtonWorksForAppleTV()
+    {
+        Debug.Log("=== ENSURING START BUTTON WORKS FOR APPLE TV ===");
+        
+        if (startScreenButton != null)
+        {
+            // Force start button to be interactable regardless of Canvas Group states
+            startScreenButton.interactable = true;
+            
+            // Check and fix all Canvas Groups in hierarchy that might block START button
+            CanvasGroup[] allCanvasGroups = startScreenButton.GetComponentsInParent<CanvasGroup>();
+            Debug.Log($"Found {allCanvasGroups.Length} CanvasGroups in START button hierarchy");
+            
+            foreach (CanvasGroup cg in allCanvasGroups)
+            {
+                if (cg != null)
+                {
+                    Debug.Log($"Enabling CanvasGroup on {cg.gameObject.name} for START button");
+                    cg.interactable = true;
+                    cg.blocksRaycasts = true;
+                    cg.alpha = 1f;
+                }
+            }
+            
+            // Also fix Canvas Groups on the start screen itself (critical for room creation)
+            if (startScreen != null)
+            {
+                CanvasGroup[] screenCanvasGroups = startScreen.GetComponentsInChildren<CanvasGroup>();
+                Debug.Log($"Fixing {screenCanvasGroups.Length} CanvasGroups in start screen for room creation");
+                foreach (CanvasGroup cg in screenCanvasGroups)
+                {
+                    if (cg != null)
+                    {
+                        cg.interactable = true;
+                        cg.blocksRaycasts = true;
+                        cg.alpha = 1f;
+                    }
+                }
+            }
+            
+            Debug.Log("✅ APPLE TV START button ready for room creation");
+        }
     }
     
     void FixCanvasGroupBlocking()
@@ -212,14 +351,12 @@ public class GameManager : MonoBehaviour
     
     void Update()
     {
-        // Process main thread actions
+        // APPLE TV MODE: Essential operations only
+        // Focus: Phone-controlled gameplay + START button for room creation
+        
+        // Process phone events immediately (critical for gameplay)
         lock (mainThreadActions)
         {
-            if (mainThreadActions.Count > 0)
-            {
-                Debug.Log("Processing " + mainThreadActions.Count + " main thread actions");
-            }
-            
             while (mainThreadActions.Count > 0)
             {
                 try
@@ -227,39 +364,35 @@ public class GameManager : MonoBehaviour
                     System.Action action = mainThreadActions.Dequeue();
                     if (action != null)
                     {
-                        Debug.Log("Executing main thread action");
                         action.Invoke();
-                        Debug.Log("Main thread action completed");
                     }
                 }
                 catch (Exception e)
                 {
-                    Debug.LogError("Error executing main thread action: " + e.Message);
-                    Debug.LogError("Stack trace: " + e.StackTrace);
+                    Debug.LogError("Error executing phone event: " + e.Message);
                 }
             }
         }
         
-        // Debug button state every few seconds when on start screen
-        if (startScreen != null && startScreen.activeInHierarchy && startScreenButton != null)
+        // Periodic status check - every 30 seconds (minimal logging for Apple TV)
+        if (Time.time % 30f < Time.deltaTime)
         {
-            if (Time.time % 3f < 0.02f) // Every 3 seconds approximately
+            Debug.Log($"🍎 APPLE TV STATUS: Running at {1f/Time.deltaTime:F0} FPS");
+            
+            // Verify socket connection for phone communications
+            if (socket != null && !socket.Connected)
             {
-                Debug.Log("=== START BUTTON STATUS CHECK ===");
-                Debug.Log("Button active: " + startScreenButton.gameObject.activeInHierarchy);
-                Debug.Log("Button interactable: " + startScreenButton.interactable);
-                Debug.Log("Button enabled: " + startScreenButton.enabled);
-                
-                CanvasGroup blockingGroup = startScreenButton.GetComponentInParent<CanvasGroup>();
-                bool isBlocked = blockingGroup != null && !blockingGroup.interactable;
-                Debug.Log("Canvas Group blocking: " + isBlocked);
-                
-                // If still blocked, try to fix it again
-                if (isBlocked)
-                {
-                    Debug.Log("Canvas Group still blocking - attempting fix...");
-                    FixCanvasGroupBlocking();
-                }
+                Debug.LogWarning("📱 Phone connection lost - phones cannot control game");
+            }
+        }
+        
+        // Ensure START button stays functional for room creation (check every 10 seconds)
+        if (Time.time % 10f < Time.deltaTime && startScreen != null && startScreen.activeInHierarchy)
+        {
+            if (startScreenButton != null && !startScreenButton.interactable)
+            {
+                Debug.LogWarning("🍎 START button became non-interactable - fixing for room creation");
+                EnsureStartButtonWorksForAppleTV();
             }
         }
     }
@@ -457,8 +590,8 @@ public class GameManager : MonoBehaviour
             ConnectToServer();
             
             // For testing without server - create test room immediately  
-            roomCode = "TEST";
-            roomCodeText.text = "Room Code: " + roomCode;
+            roomCode = "----";
+            roomCodeText.text = roomCode;
             ShowScreen("lobby");
         }
     }
@@ -478,6 +611,361 @@ public class GameManager : MonoBehaviour
         FixCanvasGroupBlocking();
     }
     
+    // Test method for 8 card color change - can be called from Inspector
+    [ContextMenu("Test 8 Card Yellow Color Change")]
+    public void TestEightCardYellowChange()
+    {
+        if (topCardImage != null)
+        {
+            CardController cardController = topCardImage.GetComponent<CardController>();
+            if (cardController != null)
+            {
+                Debug.Log("Testing: Setting 8 card to spiral first");
+                cardController.SetCard("red", 8); // First show spiral
+                
+                // Wait a moment then change to yellow
+                StartCoroutine(ChangeToYellowAfterDelay(cardController));
+            }
+            else
+            {
+                Debug.LogError("No CardController found on topCardImage!");
+            }
+        }
+        else
+        {
+            Debug.LogError("topCardImage is not assigned!");
+        }
+    }
+    
+    /// <summary>
+    /// Force assignment of SpiralAnimationController
+    /// </summary>
+    [ContextMenu("Force Find Spiral Animation Controller")]
+    public void ForceFindSpiralAnimationController()
+    {
+        Debug.Log("=== FORCE FINDING SPIRAL ANIMATION CONTROLLER ===");
+        
+        // Method 1: Direct type search
+        SpiralAnimationController foundController = FindFirstObjectByType<SpiralAnimationController>();
+        if (foundController != null)
+        {
+            spiralAnimationController = foundController;
+            Debug.Log($"✅ Found SpiralAnimationController directly: {foundController.gameObject.name}");
+            return;
+        }
+        
+        // Method 2: Search through all MonoBehaviours
+        MonoBehaviour[] allComponents = FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None);
+        Debug.Log($"Searching through {allComponents.Length} components...");
+        
+        foreach (MonoBehaviour comp in allComponents)
+        {
+            if (comp.GetType().Name == "SpiralAnimationController")
+            {
+                spiralAnimationController = comp;
+                Debug.Log($"✅ Found SpiralAnimationController: {comp.gameObject.name}");
+                return;
+            }
+        }
+        
+        Debug.LogWarning("❌ No SpiralAnimationController found in scene!");
+    }
+    
+    /// <summary>
+    /// Test the 8 card detection and spiral animation trigger manually
+    /// </summary>
+    [ContextMenu("Test 8 Card Color Choice")]
+    public void TestEightCardColorChoice()
+    {
+        Debug.Log("=== TESTING 8 CARD COLOR CHOICE ===");
+        
+        // First ensure we have a SpiralAnimationController
+        if (spiralAnimationController == null)
+        {
+            Debug.Log("SpiralAnimationController not assigned - attempting to find...");
+            ForceFindSpiralAnimationController();
+        }
+        
+        if (spiralAnimationController == null)
+        {
+            Debug.LogError("❌ No SpiralAnimationController available for test!");
+            return;
+        }
+        
+        // Set up an 8 card on the top card
+        if (topCardImage != null)
+        {
+            CardController cardController = topCardImage.GetComponent<CardController>();
+            if (cardController != null)
+            {
+                Debug.Log("Setting up 8 card for test...");
+                cardController.SetCard("red", 8); // Set to red 8 first
+                
+                // Simulate the color choice event for an 8 card
+                Debug.Log("Simulating color choice event for 8 card...");
+                
+                // Create a mock JSON response similar to what the server would send
+                string testJson = "{\"color\":\"yellow\",\"playerName\":\"TestPlayer\",\"card\":{\"rank\":\"8\",\"value\":8,\"color\":\"red\"}}";
+                
+                // Manually call the color chosen handler logic
+                Debug.Log("Testing 8 card detection with test JSON: " + testJson);
+                
+                // Extract the data
+                string color = "yellow";
+                string cardInfo = "{\"rank\":\"8\",\"value\":8,\"color\":\"red\"}";
+                
+                bool isForEightCard = false;
+                
+                // Test the card parsing logic
+                try
+                {
+                    var cardData = JsonUtility.FromJson<CardData>(cardInfo);
+                    if (cardData != null)
+                    {
+                        bool isEightByRank = cardData.rank == "8";
+                        bool isEightByValue = cardData.value == 8;
+                        isForEightCard = isEightByRank || isEightByValue;
+                        
+                        Debug.Log($"Card parsed - rank: '{cardData.rank}', value: {cardData.value}");
+                        Debug.Log($"isEightByRank: {isEightByRank}, isEightByValue: {isEightByValue}");
+                        Debug.Log($"isForEightCard: {isForEightCard}");
+                    }
+                }
+                catch (System.Exception ex)
+                {
+                    Debug.LogError("Card parsing failed: " + ex.Message);
+                }
+                
+                // If this is detected as an 8 card, trigger the animation
+                if (isForEightCard)
+                {
+                    Debug.Log("✅ 8 card detected! Triggering spiral animation...");
+                    
+                    try
+                    {
+                        var method = spiralAnimationController.GetType().GetMethod("TriggerSpiralAnimation");
+                        if (method != null)
+                        {
+                            method.Invoke(spiralAnimationController, new object[] { cardController, color });
+                            Debug.Log("✅ Spiral animation triggered for 8 card color choice!");
+                        }
+                        else
+                        {
+                            Debug.LogError("❌ TriggerSpiralAnimation method not found!");
+                        }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogError("❌ Error triggering spiral animation: " + ex.Message);
+                    }
+                }
+                else
+                {
+                    Debug.LogError("❌ 8 card was NOT detected - animation will not trigger!");
+                }
+            }
+            else
+            {
+                Debug.LogError("No CardController found on topCardImage!");
+            }
+        }
+        else
+        {
+            Debug.LogError("topCardImage is not assigned!");
+        }
+    }
+    
+    System.Collections.IEnumerator ChangeToYellowAfterDelay(CardController cardController)
+    {
+        yield return new WaitForSeconds(2f); // Wait 2 seconds
+        Debug.Log("Testing: Now changing 8 card to yellow");
+        cardController.SetCard("yellow", 8, true); // Force yellow color
+    }
+    
+    // Test current chosen color state
+    [ContextMenu("Check Chosen 8 Card Color")]
+    public void CheckChosenEightCardColor()
+    {
+        Debug.Log($"Current chosenEightCardColor: {chosenEightCardColor ?? "null"}");
+        if (topCardImage != null)
+        {
+            CardController cardController = topCardImage.GetComponent<CardController>();
+            if (cardController != null)
+            {
+                Debug.Log("CardController found on topCardImage");
+            }
+            else
+            {
+                Debug.Log("No CardController on topCardImage");
+            }
+        }
+        else
+        {
+            Debug.Log("topCardImage is null");
+        }
+    }
+    
+    /// <summary>
+    /// Test method to verify start button works for room creation
+    /// </summary>
+    [ContextMenu("Test Start Button (Room Creation)")]
+    public void TestStartButton()
+    {
+        Debug.Log("=== TESTING START BUTTON FOR ROOM CREATION ===");
+        
+        if (startScreenButton != null)
+        {
+            Debug.Log("✅ Start button found - simulating press for room creation");
+            
+            // Ensure it's properly set up first
+            EnsureStartButtonWorksForAppleTV();
+            
+            // Simulate button press
+            Debug.Log("Simulating START button press...");
+            OnStartButtonClicked();
+            
+            Debug.Log("✅ Start button test complete - check if room creation was triggered");
+        }
+        else
+        {
+            Debug.LogError("❌ Start button is NULL - cannot create rooms!");
+        }
+    }
+    public void TestAppleTVAnimation()
+    {
+        Debug.Log("=== TESTING APPLE TV PHONE-CONTROLLED ANIMATION ===");
+        Debug.Log("This simulates the complete flow as if controlled by phone");
+        
+        if (topCardImage != null)
+        {
+            CardController cardController = topCardImage.GetComponent<CardController>();
+            if (cardController == null)
+            {
+                cardController = topCardImage.gameObject.AddComponent<CardController>();
+            }
+            
+            // Simulate the exact sequence that happens when phone controls the game:
+            // 1. 8 card is played (from phone)
+            Debug.Log("📱 PHONE ACTION: Player played an 8 card");
+            cardController.SetCard("red", 8);
+            
+            // 2. Phone sends color choice
+            Debug.Log("📱 PHONE ACTION: Player chose yellow color");
+            chosenEightCardColor = "yellow";
+            
+            // 3. Trigger animation immediately (as it would happen from phone event)
+            Debug.Log("🎬 APPLE TV: Triggering animation sequence...");
+            TriggerAppleTVAnimation(cardController, "yellow");
+        }
+        else
+        {
+            Debug.LogError("❌ topCardImage is null - cannot test animation");
+        }
+    }
+    
+    /// <summary>
+    /// APPLE TV: Direct animation trigger that works without any input dependencies
+    /// </summary>
+    public void TriggerAppleTVAnimation(CardController cardController, string targetColor)
+    {
+        Debug.Log($"=== APPLE TV ANIMATION TRIGGER ===");
+        Debug.Log($"Target: {targetColor}, Time: {Time.time}");
+        
+        if (isWaitingForEightCardAnimation)
+        {
+            Debug.LogWarning("Animation already in progress - ignoring duplicate trigger");
+            return;
+        }
+        
+        isWaitingForEightCardAnimation = true;
+        
+        // Use InvokeRepeating for more reliable timing (Apple TV compatible)
+        Debug.Log("Using Apple TV compatible timing method...");
+        Invoke(nameof(ExecuteAppleTVAnimationStep1), 1f); // Show card for 1 second
+        
+        // Store animation data for the delayed execution
+        pendingAnimationCardController = cardController;
+        pendingAnimationColor = targetColor;
+    }
+    
+    // Variables for Apple TV animation
+    private CardController pendingAnimationCardController;
+    private string pendingAnimationColor;
+    
+    /// <summary>
+    /// APPLE TV: Animation step 1 - executed after 1 second delay
+    /// </summary>
+    public void ExecuteAppleTVAnimationStep1()
+    {
+        Debug.Log("=== APPLE TV ANIMATION STEP 1: TRIGGERING SPIRAL ===");
+        
+        if (pendingAnimationCardController == null || string.IsNullOrEmpty(pendingAnimationColor))
+        {
+            Debug.LogError("❌ Pending animation data is invalid");
+            isWaitingForEightCardAnimation = false;
+            return;
+        }
+        
+        // Try to trigger spiral animation directly
+        bool animationTriggered = false;
+        
+        if (spiralAnimationController != null)
+        {
+            try
+            {
+                var method = spiralAnimationController.GetType().GetMethod("TriggerSpiralAnimation");
+                if (method != null)
+                {
+                    Debug.Log("✅ Triggering spiral animation for Apple TV...");
+                    method.Invoke(spiralAnimationController, new object[] { pendingAnimationCardController, pendingAnimationColor });
+                    animationTriggered = true;
+                    Debug.Log("✅ Apple TV spiral animation triggered successfully!");
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError("❌ Apple TV animation error: " + ex.Message);
+            }
+        }
+        
+        if (!animationTriggered)
+        {
+            // Fallback: Direct card transformation
+            Debug.LogWarning("Spiral animation failed - using direct transformation");
+            pendingAnimationCardController.SetCard(pendingAnimationColor, 8, true);
+        }
+        
+        // Clean up and reset
+        pendingAnimationCardController = null;
+        pendingAnimationColor = null;
+        isWaitingForEightCardAnimation = false;
+        
+        Debug.Log("=== APPLE TV ANIMATION COMPLETE ===");
+    }
+    
+    /// <summary>
+    /// Simulate receiving a color choice for testing
+    /// </summary>
+    private System.Collections.IEnumerator SimulateColorChoice()
+    {
+        yield return new WaitForSeconds(0.5f);
+        
+        Debug.Log("Simulating color choice: yellow");
+        chosenEightCardColor = "yellow";
+        
+        // Trigger the animation sequence
+        if (topCardImage != null && !isWaitingForEightCardAnimation)
+        {
+            CardController cardController = topCardImage.GetComponent<CardController>();
+            if (cardController != null)
+            {
+                Debug.Log("✅ Triggering simplified 8 card animation for yellow");
+                isWaitingForEightCardAnimation = true;
+                StartCoroutine(DelayedEightCardAnimation(cardController, "yellow"));
+            }
+        }
+    }
+    
     void RestartGame()
     {
         ShowScreen("lobby");
@@ -491,6 +979,9 @@ public class GameManager : MonoBehaviour
             playerPositionManager.ClearPlayerDisplays();
             Debug.Log("Cleared player position displays for lobby return");
         }
+        
+        // Reset background color when restarting
+        ResetBackgroundColor();
         
         roomCodeText.text = "----";
     }
@@ -709,6 +1200,18 @@ public class GameManager : MonoBehaviour
             string jsonString = response.GetValue().ToString();
             Debug.Log("Card played JSON: " + jsonString);
             
+            // Extract the card that was played to change background color
+            string playedCard = ExtractPlayedCardFromJson(jsonString);
+            if (!string.IsNullOrEmpty(playedCard))
+            {
+                string cardColor = ExtractCardColor(playedCard);
+                if (!string.IsNullOrEmpty(cardColor))
+                {
+                    Debug.Log("Card played: " + playedCard + ", changing background to " + cardColor);
+                    EnqueueMainThreadAction(() => ChangeBackgroundToCardColor(cardColor));
+                }
+            }
+            
             // Extract game state and update UI
             UpdateGameStateFromResponse(jsonString);
         }
@@ -756,24 +1259,178 @@ public class GameManager : MonoBehaviour
     {
         try
         {
-            Debug.Log("Color chosen event received");
+            Debug.Log("=== COLOR CHOSEN EVENT RECEIVED (PHONE CONTROLLED) ===");
             string jsonString = response.GetValue().ToString();
             Debug.Log("Color chosen JSON: " + jsonString);
             
             string color = ExtractJsonValue(jsonString, "color");
             string playerName = ExtractJsonValue(jsonString, "playerName");
             
-            EnqueueMainThreadAction(delegate() {
-                if (currentColorText != null && color != null && color != "")
+            Debug.Log($"📱 PHONE INPUT: Color='{color}', Player='{playerName}'");
+            
+            // APPLE TV MODE: Process phone input immediately without any desktop dependencies
+            if (!string.IsNullOrEmpty(color))
+            {
+                chosenEightCardColor = color;
+                Debug.Log($"✅ APPLE TV: Stored chosen color: {chosenEightCardColor}");
+                
+                // IMMEDIATE PROCESSING - NO QUEUES, NO MOUSE DEPENDENCIES
+                Debug.Log("=== APPLE TV: PROCESSING PHONE INPUT IMMEDIATELY ===");
+                
+                // Update UI immediately
+                if (currentColorText != null)
                 {
                     currentColorText.text = "Current Color: " + color;
-                    Debug.Log(playerName + " chose color: " + color);
+                    Debug.Log($"📺 APPLE TV: Updated display text for {playerName} chose {color}");
                 }
-            });
+                
+                // Update background immediately
+                ChangeBackgroundToCardColor(color);
+                Debug.Log($"📺 APPLE TV: Background changed to {color}");
+                
+                // Trigger animation immediately if we have an 8 card
+                if (topCardImage != null && !isWaitingForEightCardAnimation)
+                {
+                    CardController cardController = topCardImage.GetComponent<CardController>();
+                    if (cardController != null)
+                    {
+                        Debug.Log("📺 APPLE TV: 8 card detected - triggering phone-controlled animation");
+                        
+                        // Use Apple TV compatible animation trigger
+                        TriggerAppleTVAnimation(cardController, color);
+                    }
+                    else
+                    {
+                        Debug.LogWarning("📺 APPLE TV: No CardController found");
+                    }
+                }
+                
+                Debug.Log("=== APPLE TV: PHONE INPUT PROCESSING COMPLETE ===");
+            }
+            else
+            {
+                Debug.LogWarning("📱 PHONE INPUT: No color in response");
+            }
         }
         catch (Exception e)
         {
-            Debug.LogError("Error handling color chosen: " + e.Message);
+            Debug.LogError("📺 APPLE TV ERROR handling phone color choice: " + e.Message);
+        }
+    }
+    
+    /// <summary>
+    /// Check if we can trigger the 8 card animation (current card is an 8 and not already animating)
+    /// </summary>
+    private bool CanTriggerEightCardAnimation()
+    {
+        if (isWaitingForEightCardAnimation)
+        {
+            Debug.Log("Animation already in progress");
+            return false;
+        }
+        
+        if (topCardImage == null)
+        {
+            Debug.Log("No top card image");
+            return false;
+        }
+        
+        CardController cardController = topCardImage.GetComponent<CardController>();
+        if (cardController == null)
+        {
+            Debug.Log("No card controller");
+            return false;
+        }
+        
+        // For simplicity, we'll assume if we received a color-chosen event, 
+        // it's because an 8 was played. The server should only send this when appropriate.
+        Debug.Log("✅ Can trigger 8 card animation");
+        return true;
+    }
+    
+    /// <summary>
+    /// Try to create a SpiralAnimationController dynamically using reflection
+    /// </summary>
+    /// <returns>True if successfully created, false otherwise</returns>
+    bool TryCreateSpiralAnimationController()
+    {
+        try
+        {
+            Debug.Log("=== ATTEMPTING TO CREATE SPIRAL ANIMATION CONTROLLER ===");
+            
+            // Look for the SpiralAnimationController type
+            System.Type spiralType = null;
+            System.Reflection.Assembly[] assemblies = System.AppDomain.CurrentDomain.GetAssemblies();
+            
+            Debug.Log($"Searching through {assemblies.Length} assemblies for SpiralAnimationController...");
+            
+            foreach (var assembly in assemblies)
+            {
+                Debug.Log($"Checking assembly: {assembly.FullName}");
+                try 
+                {
+                    spiralType = assembly.GetType("SpiralAnimationController");
+                    if (spiralType != null) 
+                    {
+                        Debug.Log($"✅ Found SpiralAnimationController type in assembly: {assembly.FullName}");
+                        break;
+                    }
+                }
+                catch (System.Exception ex)
+                {
+                    Debug.LogWarning($"Error checking assembly {assembly.FullName}: {ex.Message}");
+                }
+            }
+            
+            if (spiralType != null)
+            {
+                Debug.Log("✅ Found SpiralAnimationController type - creating instance...");
+                Debug.Log($"Type full name: {spiralType.FullName}");
+                Debug.Log($"Type assembly: {spiralType.Assembly.FullName}");
+                
+                GameObject spiralControllerObject = new GameObject("SpiralAnimationController");
+                Debug.Log($"Created GameObject: {spiralControllerObject.name}");
+                
+                spiralAnimationController = (MonoBehaviour)spiralControllerObject.AddComponent(spiralType);
+                Debug.Log($"Added component of type: {spiralAnimationController.GetType().Name}");
+                Debug.Log("✅ SpiralAnimationController created successfully!");
+                
+                // Verify the component has the method we need
+                var triggerMethod = spiralAnimationController.GetType().GetMethod("TriggerSpiralAnimation");
+                Debug.Log($"TriggerSpiralAnimation method available: {triggerMethod != null}");
+                
+                return true;
+            }
+            else
+            {
+                Debug.LogWarning("❌ SpiralAnimationController type not found in any assembly");
+                
+                // List all MonoBehaviour types in assemblies for debugging
+                Debug.Log("Available MonoBehaviour types in assemblies:");
+                foreach (var assembly in assemblies)
+                {
+                    try
+                    {
+                        var types = assembly.GetTypes().Where(t => typeof(MonoBehaviour).IsAssignableFrom(t) && t.Name.Contains("Spiral"));
+                        foreach (var type in types)
+                        {
+                            Debug.Log($"  Found type: {type.FullName}");
+                        }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogWarning($"Error listing types in {assembly.FullName}: {ex.Message}");
+                    }
+                }
+                
+                return false;
+            }
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError("❌ Error creating SpiralAnimationController dynamically: " + ex.Message);
+            Debug.LogError("Exception stack trace: " + ex.StackTrace);
+            return false;
         }
     }
     
@@ -1166,6 +1823,62 @@ public class GameManager : MonoBehaviour
         }
     }
     
+    // Extract the played card information from card-played event JSON
+    string ExtractPlayedCardFromJson(string json)
+    {
+        try
+        {
+            // Look for "card" field in the JSON
+            string cardJson = ExtractJsonValue(json, "card");
+            if (string.IsNullOrEmpty(cardJson))
+            {
+                // Try extracting from gameState.topCard if direct card field not found
+                string gameStateJson = ExtractGameStateJson(json);
+                if (!string.IsNullOrEmpty(gameStateJson))
+                {
+                    string topCardJson = ExtractCurrentCardFromJson(gameStateJson);
+                    return topCardJson;
+                }
+            }
+            return cardJson;
+        }
+        catch (Exception e)
+        {
+            Debug.LogError("Error extracting played card: " + e.Message);
+            return "";
+        }
+    }
+    
+    // Extract color from card string (format: "5 red", "J blue", etc.)
+    string ExtractCardColor(string cardString)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(cardString))
+                return "";
+                
+            string[] parts = cardString.Split(' ');
+            if (parts.Length >= 2)
+            {
+                string color = parts[parts.Length - 1].ToLower(); // Last part should be color
+                
+                // Validate it's a valid color
+                if (color == "red" || color == "blue" || color == "green" || color == "yellow")
+                {
+                    return color;
+                }
+            }
+            
+            Debug.LogWarning("Could not extract valid color from card: " + cardString);
+            return "";
+        }
+        catch (Exception e)
+        {
+            Debug.LogError("Error extracting card color: " + e.Message);
+            return "";
+        }
+    }
+    
     string ExtractWinnerFromJson(string json)
     {
         try
@@ -1200,6 +1913,12 @@ public class GameManager : MonoBehaviour
         {
             playerPositionManager.ClearPlayerDisplays();
             Debug.Log("Cleared player displays when switching to " + screenName);
+        }
+        
+        // Reset background color when leaving game screen
+        if (screenName != "game")
+        {
+            ResetBackgroundColor();
         }
         
         // Hide all screens
@@ -1384,6 +2103,10 @@ public class GameManager : MonoBehaviour
         }
     }
     
+    // Track if we have a chosen color for the current 8 card
+    private string chosenEightCardColor = null;
+    private bool isWaitingForEightCardAnimation = false;
+    
     void UpdateTopCard(string cardValue)
     {
         Debug.Log($"=== UpdateTopCard called with: {cardValue} ===");
@@ -1407,8 +2130,41 @@ public class GameManager : MonoBehaviour
             if (cardData != null)
             {
                 Debug.Log($"Parsed card data: {cardData.value} of {cardData.color}");
-                cardController.SetCard(cardData.color, cardData.value);
-                Debug.Log($"Called CardController.SetCard with: {cardData.color}, {cardData.value}");
+                
+                // Reset chosen color if this is not an 8 card
+                if (cardData.value != 8)
+                {
+                    chosenEightCardColor = null;
+                    isWaitingForEightCardAnimation = false;
+                    Debug.Log("Reset chosen 8 card color (new card is not an 8)");
+                }
+                
+                // SIMPLIFIED 8 CARD HANDLING: Show card for 1 second, then animate to chosen color
+                if (cardData.value == 8 && chosenEightCardColor != null && !isWaitingForEightCardAnimation)
+                {
+                    Debug.Log($"=== 8 CARD WITH CHOSEN COLOR DETECTED ===");
+                    Debug.Log($"8 card will be shown for 1 second, then animated to: {chosenEightCardColor}");
+                    
+                    // First show the basic 8 card (spiral image)
+                    cardController.SetCard(cardData.color, 8);
+                    Debug.Log($"Showing basic 8 card for 1 second...");
+                    
+                    // Start the animation sequence: wait 1 second, then animate
+                    isWaitingForEightCardAnimation = true;
+                    StartCoroutine(DelayedEightCardAnimation(cardController, chosenEightCardColor));
+                }
+                else if (cardData.value == 8 && chosenEightCardColor == null)
+                {
+                    // Show basic 8 card (waiting for color choice)
+                    cardController.SetCard(cardData.color, 8);
+                    Debug.Log($"Showing 8 card, waiting for color choice...");
+                }
+                else
+                {
+                    // Regular card (not an 8)
+                    cardController.SetCard(cardData.color, cardData.value);
+                    Debug.Log($"Called CardController.SetCard with: {cardData.color}, {cardData.value}");
+                }
             }
             else
             {
@@ -1420,6 +2176,116 @@ public class GameManager : MonoBehaviour
             if (topCardImage == null) Debug.LogError("topCardImage is null!");
             if (cardValue == null || cardValue == "") Debug.LogError("cardValue is null or empty!");
         }
+    }
+    
+    /// <summary>
+    /// Coroutine to handle the 8 card animation sequence: wait 1 second, then trigger spiral animation
+    /// </summary>
+    private System.Collections.IEnumerator DelayedEightCardAnimation(CardController cardController, string targetColor)
+    {
+        Debug.Log($"=== STARTING DELAYED 8 CARD ANIMATION SEQUENCE ===");
+        Debug.Log($"Target color: {targetColor}");
+        Debug.Log($"Time.time at start: {Time.time}");
+        Debug.Log($"GameManager enabled: {enabled}");
+        Debug.Log($"GameManager active: {gameObject.activeInHierarchy}");
+        
+        // Wait for 1 second to show the basic 8 card
+        Debug.Log("Starting 1 second wait...");
+        float startTime = Time.time;
+        yield return new WaitForSeconds(1f);
+        float endTime = Time.time;
+        Debug.Log($"1 second wait complete! Start: {startTime}, End: {endTime}, Actual duration: {endTime - startTime}");
+        
+        Debug.Log("Now triggering spectacular spiral animation!");
+        
+        // Ensure we still have valid references
+        if (cardController == null)
+        {
+            Debug.LogError("❌ CardController became null during wait!");
+            isWaitingForEightCardAnimation = false;
+            yield break;
+        }
+        
+        if (string.IsNullOrEmpty(targetColor))
+        {
+            Debug.LogError("❌ Target color became null during wait!");
+            isWaitingForEightCardAnimation = false;
+            yield break;
+        }
+        
+        // Try to trigger the spiral animation
+        bool animationTriggered = false;
+        
+        if (spiralAnimationController != null)
+        {
+            Debug.Log($"SpiralAnimationController found: {spiralAnimationController.GetType().Name}");
+            
+            try
+            {
+                var method = spiralAnimationController.GetType().GetMethod("TriggerSpiralAnimation");
+                if (method != null)
+                {
+                    Debug.Log("✅ Triggering TriggerSpiralAnimation method...");
+                    method.Invoke(spiralAnimationController, new object[] { cardController, targetColor });
+                    Debug.Log("✅ Spiral animation triggered successfully!");
+                    animationTriggered = true;
+                }
+                else
+                {
+                    Debug.LogWarning("❌ TriggerSpiralAnimation method not found");
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError("❌ Error calling TriggerSpiralAnimation: " + ex.Message);
+                Debug.LogError("Stack trace: " + ex.StackTrace);
+            }
+        }
+        else
+        {
+            Debug.LogWarning("SpiralAnimationController is null - attempting to create...");
+            
+            if (TryCreateSpiralAnimationController())
+            {
+                Debug.Log("✅ Successfully created SpiralAnimationController - retrying animation...");
+                
+                try
+                {
+                    var method = spiralAnimationController.GetType().GetMethod("TriggerSpiralAnimation");
+                    if (method != null)
+                    {
+                        Debug.Log("✅ Triggering animation with newly created controller...");
+                        method.Invoke(spiralAnimationController, new object[] { cardController, targetColor });
+                        Debug.Log("✅ Animation triggered with new controller!");
+                        animationTriggered = true;
+                    }
+                    else
+                    {
+                        Debug.LogWarning("❌ Method not found on new controller");
+                    }
+                }
+                catch (System.Exception ex)
+                {
+                    Debug.LogError("❌ Error with new controller: " + ex.Message);
+                }
+            }
+            else
+            {
+                Debug.LogWarning("❌ Could not create SpiralAnimationController");
+            }
+        }
+        
+        // Fallback if animation didn't trigger
+        if (!animationTriggered)
+        {
+            Debug.LogWarning("❌ Spiral animation failed to trigger - using direct transformation");
+            cardController.SetCard(targetColor, 8, true);
+            Debug.Log($"Directly set card to {targetColor} 8");
+        }
+        
+        // Reset the waiting flag
+        isWaitingForEightCardAnimation = false;
+        Debug.Log("=== DELAYED 8 CARD ANIMATION SEQUENCE COMPLETE ===");
     }
     
     // Helper method to parse card strings like "J of hearts", "8 of hearts", "A of spades"
@@ -1492,6 +2358,108 @@ public class GameManager : MonoBehaviour
         {
             UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(playersContainer.GetComponent<RectTransform>());
             Debug.Log("Delayed UI refresh completed");
+        }
+    }
+    
+    // Background color effect methods
+    void ChangeBackgroundToCardColor(string cardColor)
+    {
+        if (colorChangerBackground == null)
+        {
+            Debug.LogWarning("ColorChangerBackground Image not available for background color change");
+            return;
+        }
+        
+        Color newBackgroundColor = GetBackgroundColor(cardColor);
+        Debug.Log("Changing background to " + cardColor + " color: " + newBackgroundColor);
+        
+        // Apply the color with 70% opacity by lerping with the original color
+        Color finalColor = Color.Lerp(originalBackgroundColor, newBackgroundColor, 0.7f);
+        colorChangerBackground.color = finalColor;
+    }
+    
+    void ResetBackgroundColor()
+    {
+        if (colorChangerBackground != null)
+        {
+            colorChangerBackground.color = originalBackgroundColor;
+            Debug.Log("Reset background to original color");
+        }
+    }
+    
+    public Color GetBackgroundColor(string color)
+    {
+        switch (color.ToLower())
+        {
+            case "red":
+                return redColor;
+            case "blue": 
+                return blueColor;
+            case "green":
+                return greenColor;
+            case "yellow":
+                return yellowColor;
+            default: 
+                return redColor;
+        }
+    }
+    
+    /// <summary>
+    /// Manual test method to verify spiral animation works
+    /// Call this from Unity inspector or via debug menu
+    /// </summary>
+    [ContextMenu("Test 8 Card Spiral Animation")]
+    public void TestSpiralAnimation()
+    {
+        Debug.Log("=== MANUAL SPIRAL ANIMATION TEST ===");
+        
+        if (topCardImage != null)
+        {
+            CardController cardController = topCardImage.GetComponent<CardController>();
+            if (cardController != null)
+            {
+                Debug.Log("Found CardController - testing spiral animation with red color...");
+                
+                if (spiralAnimationController != null)
+                {
+                    Debug.Log("SpiralAnimationController available - triggering animation...");
+                    try
+                    {
+                        var method = spiralAnimationController.GetType().GetMethod("TriggerSpiralAnimation");
+                        if (method != null)
+                        {
+                            method.Invoke(spiralAnimationController, new object[] { cardController, "red" });
+                            Debug.Log("✅ Manual spiral animation triggered!");
+                        }
+                        else
+                        {
+                            Debug.LogError("❌ TriggerSpiralAnimation method not found!");
+                        }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogError("❌ Error in manual test: " + ex.Message);
+                    }
+                }
+                else
+                {
+                    Debug.LogError("❌ SpiralAnimationController is null!");
+                    Debug.Log("Attempting to create it now...");
+                    if (TryCreateSpiralAnimationController())
+                    {
+                        Debug.Log("Created controller - retrying test...");
+                        TestSpiralAnimation(); // Recursive call after creation
+                    }
+                }
+            }
+            else
+            {
+                Debug.LogError("❌ No CardController found on topCardImage!");
+            }
+        }
+        else
+        {
+            Debug.LogError("❌ topCardImage is null!");
         }
     }
 }

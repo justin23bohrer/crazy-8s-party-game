@@ -175,7 +175,7 @@ class RoomManager {
   }
 
   // Handle playing a card
-  handlePlayCard(room, playerIndex, cardIndex, chosenSuit = null) {
+  handlePlayCard(room, playerIndex, cardIndex, chosenColor = null) { // Changed from chosenSuit to chosenColor
     const playerHand = room.gameState.playerHands[playerIndex];
     const card = playerHand[cardIndex];
     const topCard = room.gameState.lastPlayedCard;
