@@ -34,7 +34,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 100, y: -45.9}
+  m_AnchoredPosition: {x: 100, y: -41.8}
   m_SizeDelta: {x: 200, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &3730463958219534082
@@ -149,6 +149,7 @@ GameObject:
   - component: {fileID: 1139398442886467197}
   - component: {fileID: 5631161312342984699}
   - component: {fileID: 3402753138631041039}
+  - component: {fileID: 4801800844509172241}
   m_Layer: 5
   m_Name: PlayerDisplay
   m_TagString: Untagged
@@ -215,6 +216,20 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &4801800844509172241
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4718440408743357794}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: adb30198aa32dd140b5750692dd48104, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  radius: 50
+  image: {fileID: 3402753138631041039}
 --- !u!1 &7130051241946238512
 GameObject:
   m_ObjectHideFlags: 0
@@ -249,7 +264,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 100, y: -82.929825}
+  m_AnchoredPosition: {x: 100, y: -77.5}
   m_SizeDelta: {x: 200, y: 34.140396}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &7421143631433144433
