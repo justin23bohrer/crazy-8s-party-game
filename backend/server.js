@@ -228,10 +228,15 @@ io.on('connection', (socket) => {
       const room = roomManager.rooms.get(roomCode);
       if (!room) return;
 
-      // CHECK: Block card playing during animation
+      // CHECK: Block card playing during animation, BUT ALLOW 8-card color choices
       if (roomManager.isAnimationBlocking(room)) {
-        console.log('🚫 Blocking card play - animation in progress');
-        return; // Silently reject the play
+        // If this is an 8-card with chosenColor, allow it (completing previous 8-card play)
+        if (card.rank === '8' && chosenColor) {
+          console.log('✅ Allowing 8-card color choice during animation');
+        } else {
+          console.log('🚫 Blocking card play - animation in progress');
+          return; // Silently reject non-8-card plays during animation
+        }
       }
 
       const playerIndex = roomManager.getPlayerIndex(room, socket.id);
@@ -255,8 +260,10 @@ io.on('connection', (socket) => {
             if (playerSocket) {
               const playerGameState = roomManager.getGameStateForPlayer(roomCode, playerId);
               playerSocket.emit('game-state-updated', {
-                ...playerGameState,
-                isAnimating: true // Explicitly set this to ensure it's received
+                gameState: {
+                  ...playerGameState,
+                  isAnimating: true // Explicitly set this to ensure it's received
+                }
               });
             }
           }
