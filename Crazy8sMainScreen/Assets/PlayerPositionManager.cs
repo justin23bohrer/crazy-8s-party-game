@@ -329,16 +329,47 @@ public class PlayerPositionManager : MonoBehaviour
                 // Store the original color for later use in highlighting
                 originalPlayerColors[player.name] = playerColor;
                 
-                // Debug.Log($"✓ Set player {player.name} color to: {player.color} ({playerColor}) on main Image component");
+                Debug.Log($"✓ Set player {player.name} color to: {player.color} ({playerColor}) on main Image component");
             }
             else
             {
-                // Debug.LogWarning($"No main Image component found on PlayerDisplay for player {player.name}");
+                Debug.LogWarning($"No main Image component found on PlayerDisplay for player {player.name}");
             }
         }
-        catch (System.Exception)
+        catch (System.Exception e)
         {
-            // Debug.LogError("Error setting player color: " + e.Message);
+            Debug.LogError("Error setting player color: " + e.Message);
+        }
+        
+        // Check if Outline components exist and configure the FIRST one for turn highlighting
+        try
+        {
+            UnityEngine.UI.Outline[] outlines = playerDisplay.GetComponents<UnityEngine.UI.Outline>();
+            if (outlines != null && outlines.Length > 0)
+            {
+                // Use the FIRST outline component for turn-based highlighting
+                UnityEngine.UI.Outline firstOutline = outlines[0];
+                
+                // Set initial outline to inactive (disabled)
+                firstOutline.enabled = false;
+                Debug.Log($"✓ Found {outlines.Length} Outline components for player {player.name}");
+                Debug.Log($"✓ Configured FIRST Outline component for turn highlighting (initially disabled)");
+                
+                // Log info about all outline components for debugging
+                for (int i = 0; i < outlines.Length; i++)
+                {
+                    Debug.Log($"  Outline {i}: enabled={outlines[i].enabled}, effectColor={outlines[i].effectColor}");
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"❌ NO OUTLINE COMPONENTS found on PlayerDisplay for player {player.name} - highlighting won't work!");
+                Debug.LogWarning("Please add Outline components to your PlayerDisplay prefab in the Inspector.");
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError("Error checking Outline components: " + e.Message);
         }
         
         // Add to tracking dictionary BEFORE any Canvas operations
@@ -405,9 +436,13 @@ public class PlayerPositionManager : MonoBehaviour
     
     public void HighlightCurrentPlayer(string playerName)
     {
+        Debug.Log($"🎯 HighlightCurrentPlayer called with playerName: '{playerName}'");
+        
         // Normalize the player name for comparison (trim whitespace, handle null)
         string normalizedPlayerName = string.IsNullOrEmpty(playerName) ? "" : playerName.Trim();
         string normalizedCurrentPlayer = string.IsNullOrEmpty(currentHighlightedPlayer) ? "" : currentHighlightedPlayer.Trim();
+        
+        Debug.Log($"🎯 Normalized: current='{normalizedCurrentPlayer}', new='{normalizedPlayerName}'");
         
         // If the same player is already highlighted, don't do anything
         if (normalizedCurrentPlayer == normalizedPlayerName)
@@ -416,56 +451,87 @@ public class PlayerPositionManager : MonoBehaviour
             return;
         }
         
-        Debug.Log($"HighlightCurrentPlayer: Changing from '{normalizedCurrentPlayer}' to '{normalizedPlayerName}'");
-        Debug.Log("Active player displays count: " + activePlayerDisplays.Count);
-        
-        // Reset all players to their original colors
+        Debug.Log($"🎯 HighlightCurrentPlayer: Changing from '{normalizedCurrentPlayer}' to '{normalizedPlayerName}'");
+        Debug.Log("🎯 Active player displays count: " + activePlayerDisplays.Count);
+        Debug.Log("🎯 Available player names: " + string.Join(", ", activePlayerDisplays.Keys));
+    
+        // Reset all players: disable FIRST outline only (keep second outline always enabled)
         foreach (var kvp in activePlayerDisplays)
         {
             var display = kvp.Value;
             var image = display.GetComponent<UnityEngine.UI.Image>();
+            UnityEngine.UI.Outline[] outlines = display.GetComponents<UnityEngine.UI.Outline>();
+            
+            Debug.Log($"🔄 Processing player '{kvp.Key}': Image={image != null}, Outlines={outlines?.Length ?? 0}");
+            
             if (image != null && originalPlayerColors.ContainsKey(kvp.Key))
             {
-                // Always restore to the exact original player color
+                // Restore to original background color
                 image.color = originalPlayerColors[kvp.Key];
                 Debug.Log($"Reset player {kvp.Key} to original color: {originalPlayerColors[kvp.Key]}");
             }
-        }
-        
-        // Highlight current player with a brighter version of their color
-        if (activePlayerDisplays.ContainsKey(normalizedPlayerName))
-        {
-            var image = activePlayerDisplays[normalizedPlayerName].GetComponent<UnityEngine.UI.Image>();
-            if (image != null && originalPlayerColors.ContainsKey(normalizedPlayerName))
+            
+            if (outlines != null && outlines.Length > 0)
             {
-                // Always calculate brightness from the original color, not current color
-                Color originalColor = originalPlayerColors[normalizedPlayerName];
-                Color highlightColor = new Color(
-                    Mathf.Min(originalColor.r * 1.3f, 1f), // Brighten by 30% from original
-                    Mathf.Min(originalColor.g * 1.3f, 1f),
-                    Mathf.Min(originalColor.b * 1.3f, 1f),
-                    originalColor.a
-                );
-                image.color = highlightColor;
-                Debug.Log($"Highlighted current player: {normalizedPlayerName} from original {originalColor} to {highlightColor}");
+                // Disable FIRST outline (turn indicator) - keep second outline enabled
+                outlines[0].enabled = false;
+                Debug.Log($"✅ Disabled FIRST outline for player {kvp.Key} (inactive turn)");
+                
+                // Keep second outline enabled if it exists
+                if (outlines.Length > 1)
+                {
+                    outlines[1].enabled = true;
+                    Debug.Log($"✅ Kept SECOND outline enabled for player {kvp.Key}");
+                }
             }
             else
             {
-                Debug.LogError("Image component not found on player display for: " + normalizedPlayerName);
+                Debug.LogWarning($"❌ No Outline components found for player {kvp.Key}!");
+            }
+        }
+        
+        // Highlight current player: enable BOTH outlines
+        Debug.Log($"🎯 Looking for player '{normalizedPlayerName}' in activePlayerDisplays...");
+        if (activePlayerDisplays.ContainsKey(normalizedPlayerName))
+        {
+            var display = activePlayerDisplays[normalizedPlayerName];
+            UnityEngine.UI.Outline[] outlines = display.GetComponents<UnityEngine.UI.Outline>();
+            
+            Debug.Log($"🎯 Found player display for '{normalizedPlayerName}': Outlines={outlines?.Length ?? 0}");
+            
+            if (outlines != null && outlines.Length > 0)
+            {
+                // Enable FIRST outline (turn indicator)
+                outlines[0].enabled = true;
+                Debug.Log($"✅ Enabled FIRST outline for current player {normalizedPlayerName} (active turn)");
+                
+                // Enable SECOND outline too (if it exists)
+                if (outlines.Length > 1)
+                {
+                    outlines[1].enabled = true;
+                    Debug.Log($"✅ Enabled SECOND outline for current player {normalizedPlayerName}");
+                }
+                
+                // Log all outline states for debugging
+                for (int i = 0; i < outlines.Length; i++)
+                {
+                    Debug.Log($"🔍 Outline {i} for {normalizedPlayerName}: enabled={outlines[i].enabled}, effectColor={outlines[i].effectColor}");
+                }
+            }
+            else
+            {
+                Debug.LogError($"❌ Outline components not found on player display for: {normalizedPlayerName}");
             }
         }
         else
         {
-            Debug.LogWarning("Player not found in active displays: " + normalizedPlayerName);
+            Debug.LogWarning($"❌ Player not found in active displays: {normalizedPlayerName}");
             Debug.Log("Available players: " + string.Join(", ", activePlayerDisplays.Keys));
-        }
-        
-        // Update the currently highlighted player
-        currentHighlightedPlayer = normalizedPlayerName;
-        
-        Debug.Log($"HighlightCurrentPlayer: Successfully updated highlighting for '{normalizedPlayerName}'");
-    }
+        }    // Update the currently highlighted player
+    currentHighlightedPlayer = normalizedPlayerName;
     
+    Debug.Log($"HighlightCurrentPlayer: Successfully updated highlighting for '{normalizedPlayerName}'");
+}
     public void UpdatePlayerCardCount(string playerName, int cardCount)
     {
         if (activePlayerDisplays.ContainsKey(playerName))
