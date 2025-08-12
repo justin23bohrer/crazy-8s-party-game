@@ -45,7 +45,7 @@ public class PolkaDotFader : MonoBehaviour
         
         if (dotImage == null)
         {
-            Debug.LogWarning("PolkaDotFader: No Image component found!");
+            // Debug.LogWarning("PolkaDotFader: No Image component found!");
             enabled = false;
             return;
         }
@@ -75,7 +75,7 @@ public class PolkaDotFader : MonoBehaviour
         currentFadeDuration = baseFadeDuration + Random.Range(-3f, 5f);
         currentFadeDuration = Mathf.Clamp(currentFadeDuration, 3f, 20f);
         
-        Debug.Log($"PolkaDotFader started - Color: {baseColor}, Delay: {startDelay:F1}s, Duration: {currentFadeDuration:F1}s");
+        // Debug.Log($"PolkaDotFader started - Color: {baseColor}, Delay: {startDelay:F1}s, Duration: {currentFadeDuration:F1}s");
     }
     
     void Update()
@@ -166,6 +166,7 @@ public class PolkaDotFader : MonoBehaviour
         currentFadeDuration = baseFadeDuration + Random.Range(-3f, 5f);
         currentFadeDuration = Mathf.Clamp(currentFadeDuration, 3f, 20f);
         
-        Debug.Log("Dot randomized!");
+        // Debug.Log("Dot randomized!");
     }
 }
+

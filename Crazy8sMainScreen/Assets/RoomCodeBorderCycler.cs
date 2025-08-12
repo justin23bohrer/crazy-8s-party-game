@@ -44,7 +44,7 @@ public class RoomCodeBorderCycler : MonoBehaviour
         // Validate we have something to color
         if (targetImage == null && targetOutline == null)
         {
-            Debug.LogWarning("RoomCodeBorderCycler: No Image or Outline component found! Please assign targetImage or targetOutline.");
+            // Debug.LogWarning("RoomCodeBorderCycler: No Image or Outline component found! Please assign targetImage or targetOutline.");
             enabled = false;
             return;
         }
@@ -57,7 +57,7 @@ public class RoomCodeBorderCycler : MonoBehaviour
             SetColor(colors[currentColorIndex]);
         }
         
-        Debug.Log("RoomCodeBorderCycler started with " + colors.Length + " colors");
+        // Debug.Log("RoomCodeBorderCycler started with " + colors.Length + " colors");
     }
     
     void Update()
@@ -167,7 +167,8 @@ public class RoomCodeBorderCycler : MonoBehaviour
         {
             currentColorIndex = (currentColorIndex + 1) % colors.Length;
             SetColor(colors[currentColorIndex]);
-            Debug.Log("Preview: Color " + currentColorIndex + " - " + colors[currentColorIndex]);
+            // Debug.Log("Preview: Color " + currentColorIndex + " - " + colors[currentColorIndex]);
         }
     }
 }
+

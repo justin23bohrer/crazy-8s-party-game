@@ -39,11 +39,11 @@ public class SpiralAnimationController : MonoBehaviour
     
     void Start()
     {
-        Debug.Log("=== SpiralAnimationController Start() (APPLE TV MODE) ===");
+        // // Debug.Log("=== SpiralAnimationController Start() (APPLE TV MODE) ===");
         
         // APPLE TV: Ensure this component works independently of any input
         // No mouse/keyboard dependencies for animation system
-        Debug.Log("📺 APPLE TV: Initializing phone-controlled spiral animation system");
+        // // Debug.Log("📺 APPLE TV: Initializing phone-controlled spiral animation system");
         
         // Find GameManager for background color animation
         if (gameManager == null)
@@ -51,11 +51,11 @@ public class SpiralAnimationController : MonoBehaviour
             gameManager = FindFirstObjectByType<GameManager>();
             if (gameManager != null)
             {
-                Debug.Log("✅ Found GameManager for background color animation");
+                // // Debug.Log("✅ Found GameManager for background color animation");
             }
             else
             {
-                Debug.LogWarning("⚠️ GameManager not found - background color animation disabled");
+                // // Debug.LogWarning("⚠️ GameManager not found - background color animation disabled");
                 animateBackgroundColor = false;
             }
         }
@@ -63,52 +63,52 @@ public class SpiralAnimationController : MonoBehaviour
         // Auto-setup if components not assigned
         if (fullScreenSpiralImage == null)
         {
-            Debug.Log("Creating full screen spiral image component...");
+            // // Debug.Log("Creating full screen spiral image component...");
             SetupFullScreenSpiralImage();
             
             // Add verification after setup
             if (fullScreenSpiralImage == null)
             {
-                Debug.LogError("❌ FAILED to create fullScreenSpiralImage!");
+                // // Debug.LogError("❌ FAILED to create fullScreenSpiralImage!");
             }
             else
             {
-                Debug.Log("✅ Successfully created fullScreenSpiralImage: " + fullScreenSpiralImage.name);
+                // // Debug.Log("✅ Successfully created fullScreenSpiralImage: " + fullScreenSpiralImage.name);
             }
         }
         
         // Auto-assign spiral sprite if not set
         if (spiralSprite == null)
         {
-            Debug.Log("Auto-finding spiral sprite...");
+            // // Debug.Log("Auto-finding spiral sprite...");
             AutoFindSpiralSprite();
             
             // Add verification
             if (spiralSprite == null)
             {
-                Debug.LogError("❌ FAILED to find spiral sprite!");
+                // // Debug.LogError("❌ FAILED to find spiral sprite!");
             }
             else
             {
-                Debug.Log("✅ Successfully found spiral sprite: " + spiralSprite.name);
+                // // Debug.Log("✅ Successfully found spiral sprite: " + spiralSprite.name);
             }
         }
         
         // Make sure spiral starts hidden
         HideSpiralInstantly();
         
-        Debug.Log("=== SpiralAnimationController Setup Complete ===");
+        // // Debug.Log("=== SpiralAnimationController Setup Complete ===");
         
         // Add final verification
         if (fullScreenSpiralImage != null && spiralCanvasGroup != null)
         {
-            Debug.Log("✅ All components ready for animation!");
+            // // Debug.Log("✅ All components ready for animation!");
         }
         else
         {
-            Debug.LogError("❌ Missing critical components!");
-            Debug.LogError($"fullScreenSpiralImage: {fullScreenSpiralImage}");
-            Debug.LogError($"spiralCanvasGroup: {spiralCanvasGroup}");
+            // // Debug.LogError("❌ Missing critical components!");
+            // // Debug.LogError($"fullScreenSpiralImage: {fullScreenSpiralImage}");
+            // // Debug.LogError($"spiralCanvasGroup: {spiralCanvasGroup}");
         }
     }
     
@@ -117,47 +117,47 @@ public class SpiralAnimationController : MonoBehaviour
     /// </summary>
     private void AutoFindSpiralSprite()
     {
-        Debug.Log("🔍 Starting AutoFindSpiralSprite...");
+        // // Debug.Log("🔍 Starting AutoFindSpiralSprite...");
         
         // Method 1: Try Resources folder
-        Debug.Log("Trying Resources.Load<Sprite>(\"SpiralColor\")...");
+        // // Debug.Log("Trying Resources.Load<Sprite>(\"SpiralColor\")...");
         spiralSprite = Resources.Load<Sprite>("SpiralColor");
         if (spiralSprite != null)
         {
-            Debug.Log("✅ Found SpiralColor in Resources folder");
+            // // Debug.Log("✅ Found SpiralColor in Resources folder");
             return;
         }
-        Debug.Log("❌ SpiralColor not found in Resources folder");
+        // // Debug.Log("❌ SpiralColor not found in Resources folder");
         
         // Method 2: Look for it on existing images in scene
-        Debug.Log("Searching existing images in scene...");
+        // // Debug.Log("Searching existing images in scene...");
         Image[] allImages = FindObjectsByType<Image>(FindObjectsSortMode.None);
-        Debug.Log($"Found {allImages.Length} images in scene");
+        // // Debug.Log($"Found {allImages.Length} images in scene");
         
         foreach (Image img in allImages)
         {
             if (img.sprite != null && img.sprite.name.Contains("SpiralColor"))
             {
                 spiralSprite = img.sprite;
-                Debug.Log("✅ Found SpiralColor sprite on: " + img.name);
+                // // Debug.Log("✅ Found SpiralColor sprite on: " + img.name);
                 return;
             }
         }
-        Debug.Log("❌ SpiralColor sprite not found on any existing images");
+        // // Debug.Log("❌ SpiralColor sprite not found on any existing images");
         
         // Method 3: Check CardController for eightCardSprite
-        Debug.Log("Checking CardController for eightCardSprite...");
+        // // Debug.Log("Checking CardController for eightCardSprite...");
         CardController cardController = FindFirstObjectByType<CardController>();
         if (cardController != null && cardController.eightCardSprite != null)
         {
             spiralSprite = cardController.eightCardSprite;
-            Debug.Log("✅ Using CardController's eightCardSprite");
+            // // Debug.Log("✅ Using CardController's eightCardSprite");
             return;
         }
-        Debug.Log("❌ No suitable sprite found in CardController");
+        // // Debug.Log("❌ No suitable sprite found in CardController");
         
-        Debug.LogWarning("❌ Could not auto-find spiral sprite. Animation will use solid color.");
-        Debug.LogWarning("To fix: Assign SpiralColor.png manually in Inspector or put it in Resources folder.");
+        // // Debug.LogWarning("❌ Could not auto-find spiral sprite. Animation will use solid color.");
+        // // Debug.LogWarning("To fix: Assign SpiralColor.png manually in Inspector or put it in Resources folder.");
     }
     
     /// <summary>
@@ -172,45 +172,45 @@ public class SpiralAnimationController : MonoBehaviour
         
         if (isAnimating)
         {
-            Debug.LogWarning("Spiral animation already in progress!");
+            // // Debug.LogWarning("Spiral animation already in progress!");
             return;
         }
         
-        Debug.Log($"=== TRIGGERING SPECTACULAR SPIRAL ANIMATION ===");
-        Debug.Log($"Card: {cardController.name}, New Color: {newColor}");
+        // // Debug.Log($"=== TRIGGERING SPECTACULAR SPIRAL ANIMATION ===");
+        // // Debug.Log($"Card: {cardController.name}, New Color: {newColor}");
         
         // Force setup if components are missing
         if (fullScreenSpiralImage == null || spiralCanvasGroup == null)
         {
-            Debug.Log("⚠️ Components missing - forcing setup...");
+            // // Debug.Log("⚠️ Components missing - forcing setup...");
             
             if (fullScreenSpiralImage == null)
             {
-                Debug.Log("Setting up fullScreenSpiralImage...");
+                // // Debug.Log("Setting up fullScreenSpiralImage...");
                 try
                 {
                     SetupFullScreenSpiralImage();
-                    Debug.Log("✅ SetupFullScreenSpiralImage completed");
+                    // // Debug.Log("✅ SetupFullScreenSpiralImage completed");
                 }
-                catch (System.Exception e)
+                catch (System.Exception)
                 {
-                    Debug.LogError($"❌ SetupFullScreenSpiralImage failed: {e.Message}");
-                    Debug.LogError($"Stack trace: {e.StackTrace}");
+                    // // Debug.LogError($"❌ SetupFullScreenSpiralImage failed: {e.Message}");
+                    // // Debug.LogError($"Stack trace: {e.StackTrace}");
                     return;
                 }
             }
             
             if (spiralSprite == null)
             {
-                Debug.Log("Setting up spiral sprite...");
+                // // Debug.Log("Setting up spiral sprite...");
                 try
                 {
                     AutoFindSpiralSprite();
-                    Debug.Log("✅ AutoFindSpiralSprite completed");
+                    // // Debug.Log("✅ AutoFindSpiralSprite completed");
                 }
-                catch (System.Exception e)
+                catch (System.Exception)
                 {
-                    Debug.LogError($"❌ AutoFindSpiralSprite failed: {e.Message}");
+                    // // Debug.LogError($"❌ AutoFindSpiralSprite failed: {e.Message}");
                     return;
                 }
             }
@@ -219,17 +219,17 @@ public class SpiralAnimationController : MonoBehaviour
         // Verify setup worked
         if (fullScreenSpiralImage == null)
         {
-            Debug.LogError("❌ CRITICAL: Cannot animate - fullScreenSpiralImage is still null after setup!");
+            // // Debug.LogError("❌ CRITICAL: Cannot animate - fullScreenSpiralImage is still null after setup!");
             return;
         }
         
         if (spiralCanvasGroup == null)
         {
-            Debug.LogError("❌ CRITICAL: Cannot animate - spiralCanvasGroup is still null after setup!");
+            // // Debug.LogError("❌ CRITICAL: Cannot animate - spiralCanvasGroup is still null after setup!");
             return;
         }
         
-        Debug.Log("✅ Components verified - starting animation...");
+        // // Debug.Log("✅ Components verified - starting animation...");
         
         targetCardController = cardController;
         chosenColor = newColor;
@@ -250,27 +250,27 @@ public class SpiralAnimationController : MonoBehaviour
         // Background color animation - start immediately with spiral
         if (animateBackgroundColor && gameManager != null)
         {
-            Debug.Log("🎨 Starting background color animation");
+            // Debug.Log("🎨 Starting background color animation");
             StartCoroutine(AnimateBackgroundColor(transformationCard));
         }
         
         // PHASE 1: Show and grow the spiral from card position to full screen
-        Debug.Log("Phase 1: Growing spiral to full screen...");
+        // Debug.Log("Phase 1: Growing spiral to full screen...");
         yield return StartCoroutine(GrowSpiralToFullScreen());
         
         // PHASE 2: Spin the spiral dramatically
-        Debug.Log("Phase 2: Spinning spiral dramatically...");
+        // Debug.Log("Phase 2: Spinning spiral dramatically...");
         yield return StartCoroutine(SpinSpiralDramatically());
         
         // PHASE 3: Transform the card (behind the spiral)
-        Debug.Log("Phase 3: Transforming card behind spiral...");
+        // Debug.Log("Phase 3: Transforming card behind spiral...");
         TransformCardToChosenColor();
         
         // PHASE 4: Fade out spiral to reveal transformed card
-        Debug.Log("Phase 4: Revealing transformed card...");
+        // Debug.Log("Phase 4: Revealing transformed card...");
         yield return StartCoroutine(FadeOutSpiralRevealCard());
         
-        Debug.Log("=== SPIRAL ANIMATION COMPLETE! ===");
+        // Debug.Log("=== SPIRAL ANIMATION COMPLETE! ===");
         isAnimating = false;
         
         // Notify GameManager that animation is complete (if method exists)
@@ -282,16 +282,16 @@ public class SpiralAnimationController : MonoBehaviour
                 if (method != null)
                 {
                     method.Invoke(gameManager, null);
-                    Debug.Log("✅ Notified GameManager of animation completion");
+                    // Debug.Log("✅ Notified GameManager of animation completion");
                 }
                 else
                 {
-                    Debug.Log("⚠️ OnSpiralAnimationComplete method not found in GameManager");
+                    // Debug.Log("⚠️ OnSpiralAnimationComplete method not found in GameManager");
                 }
             }
-            catch (System.Exception e)
+            catch (System.Exception)
             {
-                Debug.LogWarning($"⚠️ Could not notify GameManager: {e.Message}");
+                // Debug.LogWarning($"⚠️ Could not notify GameManager: {e.Message}");
             }
         }
     }
@@ -304,18 +304,18 @@ public class SpiralAnimationController : MonoBehaviour
         // Add safety checks
         if (fullScreenSpiralImage == null)
         {
-            Debug.LogError("❌ Cannot grow spiral - fullScreenSpiralImage is null!");
+            // Debug.LogError("❌ Cannot grow spiral - fullScreenSpiralImage is null!");
             yield break;
         }
         
         if (spiralCanvasGroup == null)
         {
-            Debug.LogError("❌ Cannot grow spiral - spiralCanvasGroup is null!");
+            // Debug.LogError("❌ Cannot grow spiral - spiralCanvasGroup is null!");
             yield break;
         }
         
-        Debug.Log($"✅ Starting spiral grow with image: {fullScreenSpiralImage.name}");
-        Debug.Log($"✅ Spiral sprite: {(fullScreenSpiralImage.sprite != null ? fullScreenSpiralImage.sprite.name : "NULL")}");
+        // Debug.Log($"✅ Starting spiral grow with image: {fullScreenSpiralImage.name}");
+        // Debug.Log($"✅ Spiral sprite: {(fullScreenSpiralImage.sprite != null ? fullScreenSpiralImage.sprite.name : "NULL")}");
         
         // Ensure spiral is positioned at screen center
         RectTransform rectTransform = fullScreenSpiralImage.GetComponent<RectTransform>();
@@ -351,7 +351,7 @@ public class SpiralAnimationController : MonoBehaviour
         fullScreenSpiralImage.transform.localScale = Vector3.one * endScale;
         spiralCanvasGroup.alpha = 1f;
         
-        Debug.Log("Spiral grown to full screen!");
+        // Debug.Log("Spiral grown to full screen!");
     }
     
     /// <summary>
@@ -379,7 +379,7 @@ public class SpiralAnimationController : MonoBehaviour
             yield return null;
         }
         
-        Debug.Log("Spiral spinning complete!");
+        // Debug.Log("Spiral spinning complete!");
     }
     
     /// <summary>
@@ -389,13 +389,13 @@ public class SpiralAnimationController : MonoBehaviour
     {
         if (targetCardController != null && !string.IsNullOrEmpty(chosenColor))
         {
-            Debug.Log($"Transforming card to {chosenColor} behind the spiral...");
+            // Debug.Log($"Transforming card to {chosenColor} behind the spiral...");
             targetCardController.SetCard(chosenColor, 8, true); // Force the 8 card to the chosen color
-            Debug.Log("Card transformation complete!");
+            // Debug.Log("Card transformation complete!");
         }
         else
         {
-            Debug.LogError("Cannot transform card - missing card controller or color!");
+            // Debug.LogError("Cannot transform card - missing card controller or color!");
         }
     }
     
@@ -425,7 +425,7 @@ public class SpiralAnimationController : MonoBehaviour
         // Hide the spiral completely
         HideSpiralInstantly();
         
-        Debug.Log("Spiral faded out - transformed card revealed!");
+        // Debug.Log("Spiral faded out - transformed card revealed!");
     }
     
     /// <summary>
@@ -451,47 +451,47 @@ public class SpiralAnimationController : MonoBehaviour
     /// </summary>
     private void SetupFullScreenSpiralImage()
     {
-        Debug.Log("🔧 Starting SetupFullScreenSpiralImage...");
+        // Debug.Log("🔧 Starting SetupFullScreenSpiralImage...");
         
         try
         {
             // Create a Canvas for the spiral overlay
-            Debug.Log("Creating SpiralAnimationCanvas...");
+            // Debug.Log("Creating SpiralAnimationCanvas...");
             GameObject spiralCanvas = new GameObject("SpiralAnimationCanvas");
             Canvas canvas = spiralCanvas.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 100; // High sorting order to appear on top
-            Debug.Log("✅ Canvas created");
+            // Debug.Log("✅ Canvas created");
             
             CanvasScaler scaler = spiralCanvas.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920, 1080);
-            Debug.Log("✅ CanvasScaler added");
+            // Debug.Log("✅ CanvasScaler added");
             
             spiralCanvas.AddComponent<GraphicRaycaster>();
-            Debug.Log("✅ GraphicRaycaster added");
+            // Debug.Log("✅ GraphicRaycaster added");
             
             // Create the spiral image
-            Debug.Log("Creating FullScreenSpiral GameObject...");
+            // Debug.Log("Creating FullScreenSpiral GameObject...");
             GameObject spiralObject = new GameObject("FullScreenSpiral");
             spiralObject.transform.SetParent(spiralCanvas.transform, false);
             
             fullScreenSpiralImage = spiralObject.AddComponent<Image>();
-            Debug.Log("✅ Image component added");
+            // Debug.Log("✅ Image component added");
             
             // Setup spiral image properties
             if (spiralSprite != null)
             {
                 fullScreenSpiralImage.sprite = spiralSprite;
-                Debug.Log("Using assigned spiral sprite: " + spiralSprite.name);
+                // Debug.Log("Using assigned spiral sprite: " + spiralSprite.name);
             }
             else
             {
-                Debug.Log("No spiral sprite assigned - will use solid color");
+                // Debug.Log("No spiral sprite assigned - will use solid color");
             }
             
             fullScreenSpiralImage.color = spiralBaseColor;
-            Debug.Log("✅ Image color set");
+            // Debug.Log("✅ Image color set");
             
             // Make it fill the screen but centered
             RectTransform rectTransform = spiralObject.GetComponent<RectTransform>();
@@ -500,19 +500,19 @@ public class SpiralAnimationController : MonoBehaviour
             rectTransform.pivot = new Vector2(0.5f, 0.5f);
             rectTransform.anchoredPosition = Vector2.zero;
             rectTransform.sizeDelta = new Vector2(400, 400); // Base size for spiral
-            Debug.Log("✅ RectTransform configured");
+            // Debug.Log("✅ RectTransform configured");
             
             // Add CanvasGroup for fade effects
             spiralCanvasGroup = spiralObject.AddComponent<CanvasGroup>();
             spiralCanvasGroup.alpha = 0f;
-            Debug.Log("✅ CanvasGroup added");
+            // Debug.Log("✅ CanvasGroup added");
             
-            Debug.Log("🎉 Full screen spiral image setup complete!");
+            // Debug.Log("🎉 Full screen spiral image setup complete!");
         }
-        catch (System.Exception e)
+        catch (System.Exception)
         {
-            Debug.LogError($"❌ Exception in SetupFullScreenSpiralImage: {e.Message}");
-            Debug.LogError($"Stack trace: {e.StackTrace}");
+            // Debug.LogError($"❌ Exception in SetupFullScreenSpiralImage: {e.Message}");
+            // Debug.LogError($"Stack trace: {e.StackTrace}");
             throw;
         }
     }
@@ -527,12 +527,12 @@ public class SpiralAnimationController : MonoBehaviour
         CardController testCard = FindFirstObjectByType<CardController>();
         if (testCard != null)
         {
-            Debug.Log("Testing spiral animation with yellow color...");
+            // Debug.Log("Testing spiral animation with yellow color...");
             TriggerSpiralAnimation(testCard, "yellow");
         }
         else
         {
-            Debug.LogError("No CardController found for testing!");
+            // Debug.LogError("No CardController found for testing!");
         }
     }
     
@@ -551,11 +551,11 @@ public class SpiralAnimationController : MonoBehaviour
     {
         if (gameManager == null || gameManager.colorChangerBackground == null)
         {
-            Debug.LogWarning("GameManager or background image not available for background color animation");
+            // Debug.LogWarning("GameManager or background image not available for background color animation");
             yield break;
         }
         
-        Debug.Log($"🎨 Animating background to {targetCard.color} over {backgroundColorTransitionDuration} seconds");
+        // Debug.Log($"🎨 Animating background to {targetCard.color} over {backgroundColorTransitionDuration} seconds");
         
         // Start color change immediately with the animation for smooth gradual transition
         // No delay - begin changing color right as spiral animation starts
@@ -592,12 +592,13 @@ public class SpiralAnimationController : MonoBehaviour
         }
         else
         {
-            Debug.LogWarning("Could not find ChangeBackgroundToCardColor method - using fallback");
+            // Debug.LogWarning("Could not find ChangeBackgroundToCardColor method - using fallback");
             // Fallback: use the direct method call
             Color targetColor = gameManager.GetBackgroundColor(targetCard.color);
             gameManager.colorChangerBackground.color = targetColor;
         }
         
-        Debug.Log("✅ Background color animation completed using same method as normal cards");
+        // Debug.Log("✅ Background color animation completed using same method as normal cards");
     }
 }
+

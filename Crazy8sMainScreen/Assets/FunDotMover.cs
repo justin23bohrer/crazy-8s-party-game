@@ -39,27 +39,27 @@ public class FunDotMover : MonoBehaviour
         // Wait a frame then start movement to ensure everything is initialized
         StartCoroutine(DelayedStart());
         
-        Debug.Log($"🚀 FunDotMover started on {gameObject.name} with container radius: {containerRadius}");
-        Debug.Log($"🚀 Initial position set to center: {transform.localPosition}");
+        // Debug.Log($"🚀 FunDotMover started on {gameObject.name} with container radius: {containerRadius}");
+        // Debug.Log($"🚀 Initial position set to center: {transform.localPosition}");
     }
     
     System.Collections.IEnumerator DelayedStart()
     {
         yield return new WaitForEndOfFrame();
         
-        Debug.Log($"🚀 Starting delayed movement for {gameObject.name}");
+        // Debug.Log($"🚀 Starting delayed movement for {gameObject.name}");
         StartRandomMovement();
     }
     
     void StartRandomMovement()
     {
-        Debug.Log($"🎯 StartRandomMovement called for {gameObject.name}");
+        // Debug.Log($"🎯 StartRandomMovement called for {gameObject.name}");
         
         // Stop any existing movement
         if (movementCoroutine != null)
         {
             StopCoroutine(movementCoroutine);
-            Debug.Log($"🛑 Stopped existing movement coroutine for {gameObject.name}");
+            // Debug.Log($"🛑 Stopped existing movement coroutine for {gameObject.name}");
         }
         
         // Pick an initial random target
@@ -67,7 +67,7 @@ public class FunDotMover : MonoBehaviour
         
         // Start the movement coroutine
         movementCoroutine = StartCoroutine(MoveRandomly());
-        Debug.Log($"▶️ Started movement coroutine for {gameObject.name}");
+        // Debug.Log($"▶️ Started movement coroutine for {gameObject.name}");
     }
     
     void PickNewRandomTarget()
@@ -80,18 +80,18 @@ public class FunDotMover : MonoBehaviour
         // Convert to local position relative to the container CENTER (not initial position)
         targetPosition = new Vector3(randomPoint.x, randomPoint.y, 0f);
         
-        Debug.Log($"🎯 {gameObject.name}: New target {targetPosition} (radius: {effectiveRadius})");
-        Debug.Log($"🎯 Current position: {transform.localPosition}");
-        Debug.Log($"🎯 Distance to target: {Vector3.Distance(transform.localPosition, targetPosition)}");
+        // Debug.Log($"🎯 {gameObject.name}: New target {targetPosition} (radius: {effectiveRadius})");
+        // Debug.Log($"🎯 Current position: {transform.localPosition}");
+        // Debug.Log($"🎯 Distance to target: {Vector3.Distance(transform.localPosition, targetPosition)}");
     }
     
     IEnumerator MoveRandomly()
     {
-        Debug.Log($"🔄 MoveRandomly coroutine started for {gameObject.name}");
+        // Debug.Log($"🔄 MoveRandomly coroutine started for {gameObject.name}");
         
         while (true)
         {
-            Debug.Log($"🔄 Moving towards target: {targetPosition} from {transform.localPosition}");
+            // Debug.Log($"🔄 Moving towards target: {targetPosition} from {transform.localPosition}");
             
             // Move towards the current target
             while (Vector3.Distance(transform.localPosition, targetPosition) > 5f)
@@ -107,13 +107,13 @@ public class FunDotMover : MonoBehaviour
                 // Debug every few frames to avoid spam
                 if (Time.frameCount % 60 == 0) // Every 60 frames (about 1 second at 60fps)
                 {
-                    Debug.Log($"🔄 {gameObject.name} moving: {oldPosition} → {transform.localPosition} (target: {targetPosition})");
+                    // Debug.Log($"🔄 {gameObject.name} moving: {oldPosition} → {transform.localPosition} (target: {targetPosition})");
                 }
                 
                 yield return null; // Wait for next frame
             }
             
-            Debug.Log($"✅ {gameObject.name} reached target {targetPosition}");
+            // Debug.Log($"✅ {gameObject.name} reached target {targetPosition}");
             
             // We've reached the target, wait a bit then pick a new one
             yield return new WaitForSeconds(changeDirectionInterval);
@@ -127,7 +127,7 @@ public class FunDotMover : MonoBehaviour
     public void SetContainerRadius(float newRadius)
     {
         containerRadius = newRadius;
-        Debug.Log($"Container radius updated to: {containerRadius}");
+        // Debug.Log($"Container radius updated to: {containerRadius}");
     }
     
     /// <summary>
@@ -137,7 +137,7 @@ public class FunDotMover : MonoBehaviour
     {
         moveSpeed = newSpeed;
         smoothness = newSpeed / 25f; // Adjust smoothness proportionally
-        Debug.Log($"Move speed updated to: {moveSpeed}");
+        // Debug.Log($"Move speed updated to: {moveSpeed}");
     }
     
     /// <summary>
@@ -169,9 +169,9 @@ public class FunDotMover : MonoBehaviour
     [ContextMenu("Force Move Test")]
     public void ForceMovementTest()
     {
-        Debug.Log($"🧪 FORCE MOVEMENT TEST for {gameObject.name}");
-        Debug.Log($"🧪 Current local position: {transform.localPosition}");
-        Debug.Log($"🧪 Container radius: {containerRadius}");
+        // Debug.Log($"🧪 FORCE MOVEMENT TEST for {gameObject.name}");
+        // Debug.Log($"🧪 Current local position: {transform.localPosition}");
+        // Debug.Log($"🧪 Container radius: {containerRadius}");
         
         // Force pick a new target
         PickNewRandomTarget();
@@ -179,7 +179,7 @@ public class FunDotMover : MonoBehaviour
         // Test immediate movement to a safe position inside the circle
         Vector3 testTarget = new Vector3(containerRadius * 0.3f, containerRadius * 0.3f, 0f);
         transform.localPosition = testTarget;
-        Debug.Log($"🧪 Moved to test position: {testTarget}");
+        // Debug.Log($"🧪 Moved to test position: {testTarget}");
         
         // Wait a moment then reset to center and restart movement
         StartCoroutine(ResetAfterTest());
@@ -203,14 +203,14 @@ public class FunDotMover : MonoBehaviour
     [ContextMenu("Show Status")]
     public void ShowStatus()
     {
-        Debug.Log($"📊 STATUS for {gameObject.name}:");
-        Debug.Log($"📊 Current position: {transform.localPosition}");
-        Debug.Log($"📊 Target position: {targetPosition}");
-        Debug.Log($"📊 Initial position: {initialPosition}");
-        Debug.Log($"📊 Movement active: {movementCoroutine != null}");
-        Debug.Log($"📊 Distance to target: {Vector3.Distance(transform.localPosition, targetPosition)}");
-        Debug.Log($"📊 Container radius: {containerRadius}");
-        Debug.Log($"📊 GameObject active: {gameObject.activeInHierarchy}");
+        // Debug.Log($"📊 STATUS for {gameObject.name}:");
+        // Debug.Log($"📊 Current position: {transform.localPosition}");
+        // Debug.Log($"📊 Target position: {targetPosition}");
+        // Debug.Log($"📊 Initial position: {initialPosition}");
+        // Debug.Log($"📊 Movement active: {movementCoroutine != null}");
+        // Debug.Log($"📊 Distance to target: {Vector3.Distance(transform.localPosition, targetPosition)}");
+        // Debug.Log($"📊 Container radius: {containerRadius}");
+        // Debug.Log($"📊 GameObject active: {gameObject.activeInHierarchy}");
     }
     
     /// <summary>
@@ -219,7 +219,7 @@ public class FunDotMover : MonoBehaviour
     [ContextMenu("Force Instant Movement")]
     public void ForceInstantMovement()
     {
-        Debug.Log($"⚡ FORCE INSTANT MOVEMENT for {gameObject.name}");
+        // Debug.Log($"⚡ FORCE INSTANT MOVEMENT for {gameObject.name}");
         
         // Jump to a few different positions to test visibility
         Vector3[] testPositions = {
@@ -238,11 +238,11 @@ public class FunDotMover : MonoBehaviour
         foreach (Vector3 pos in positions)
         {
             transform.localPosition = pos;
-            Debug.Log($"⚡ Jumped to: {pos}");
+            // Debug.Log($"⚡ Jumped to: {pos}");
             yield return new WaitForSeconds(0.5f);
         }
         
-        Debug.Log($"⚡ Test complete, restarting normal movement");
+        // Debug.Log($"⚡ Test complete, restarting normal movement");
         StartRandomMovement();
     }
     
@@ -264,3 +264,4 @@ public class FunDotMover : MonoBehaviour
         }
     }
 }
+

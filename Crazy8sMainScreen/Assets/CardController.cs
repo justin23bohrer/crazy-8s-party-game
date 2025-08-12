@@ -58,12 +58,12 @@ public class CardController : MonoBehaviour
     
     void Start()
     {
-        Debug.Log("=== CardController Start() ===");
+        // Debug.Log("=== CardController Start() ===");
         
         // Ensure all components are properly initialized
         InitializeComponents();
         
-        Debug.Log("=== CardController Start() Complete ===");
+        // Debug.Log("=== CardController Start() Complete ===");
     }
     
     /// <summary>
@@ -75,7 +75,7 @@ public class CardController : MonoBehaviour
         if (cardBackground == null) 
         {
             cardBackground = GetComponent<Image>();
-            Debug.Log("Card background found: " + (cardBackground != null));
+            // Debug.Log("Card background found: " + (cardBackground != null));
         }
         
         // CRITICAL FIX: Enhanced outline detection with multiple fallback methods
@@ -85,34 +85,34 @@ public class CardController : MonoBehaviour
             if (cardBackground != null) 
             {
                 cardOutline = cardBackground.GetComponent<Outline>();
-                Debug.Log("Outline search method 1 (cardBackground): " + (cardOutline != null));
+                // Debug.Log("Outline search method 1 (cardBackground): " + (cardOutline != null));
             }
             
             // Method 2: Try to get outline from this GameObject
             if (cardOutline == null)
             {
                 cardOutline = GetComponent<Outline>();
-                Debug.Log("Outline search method 2 (this GameObject): " + (cardOutline != null));
+                // Debug.Log("Outline search method 2 (this GameObject): " + (cardOutline != null));
             }
             
             // Method 3: Search child objects for outline
             if (cardOutline == null)
             {
                 cardOutline = GetComponentInChildren<Outline>();
-                Debug.Log("Outline search method 3 (children): " + (cardOutline != null));
+                // Debug.Log("Outline search method 3 (children): " + (cardOutline != null));
             }
             
             // Method 4: Search parent objects for outline
             if (cardOutline == null)
             {
                 cardOutline = GetComponentInParent<Outline>();
-                Debug.Log("Outline search method 4 (parents): " + (cardOutline != null));
+                // Debug.Log("Outline search method 4 (parents): " + (cardOutline != null));
             }
             
             // Method 5: Add outline component if none found
             if (cardOutline == null && cardBackground != null)
             {
-                Debug.Log("No outline found - adding Outline component to card background");
+                // Debug.Log("No outline found - adding Outline component to card background");
                 cardOutline = cardBackground.gameObject.AddComponent<Outline>();
                 
                 // Set default outline properties
@@ -120,47 +120,47 @@ public class CardController : MonoBehaviour
                 cardOutline.effectDistance = new Vector2(2, 2);
                 cardOutline.useGraphicAlpha = false;
                 
-                Debug.Log("✅ Added new Outline component with default settings");
+                // Debug.Log("✅ Added new Outline component with default settings");
             }
         }
         
-        Debug.Log("Final outline status: " + (cardOutline != null));
+        // Debug.Log("Final outline status: " + (cardOutline != null));
         
         // Find child components automatically if not assigned
-        Debug.Log("Looking for child components...");
-        Debug.Log("Child count: " + transform.childCount);
+        // Debug.Log("Looking for child components...");
+        // Debug.Log("Child count: " + transform.childCount);
         
         for (int i = 0; i < transform.childCount; i++)
         {
             Transform child = transform.GetChild(i);
-            Debug.Log("Child " + i + ": " + child.name);
+            // Debug.Log("Child " + i + ": " + child.name);
         }
         
         if (cardValueTop == null) 
         {
             cardValueTop = transform.Find("CardValueTop")?.GetComponent<TextMeshProUGUI>();
-            Debug.Log("CardValueTop found: " + (cardValueTop != null));
+            // Debug.Log("CardValueTop found: " + (cardValueTop != null));
         }
         
         if (cardValueBottom == null) 
         {
             cardValueBottom = transform.Find("CardValueBottom")?.GetComponent<TextMeshProUGUI>();
-            Debug.Log("CardValueBottom found: " + (cardValueBottom != null));
+            // Debug.Log("CardValueBottom found: " + (cardValueBottom != null));
         }
         
         if (cardValueCenter == null) 
         {
             cardValueCenter = transform.Find("CardValueCenter")?.GetComponent<TextMeshProUGUI>();
-            Debug.Log("CardValueCenter found: " + (cardValueCenter != null));
+            // Debug.Log("CardValueCenter found: " + (cardValueCenter != null));
         }
         
         if (innerCard == null) 
         {
             innerCard = transform.Find("InnerCard")?.GetComponent<Image>();
-            Debug.Log("InnerCard found: " + (innerCard != null));
+            // Debug.Log("InnerCard found: " + (innerCard != null));
         }
         
-        Debug.Log("=== CardController Start() Complete ===");
+        // Debug.Log("=== CardController Start() Complete ===");
     }
     
     public void SetCard(string color, int value)
@@ -170,7 +170,7 @@ public class CardController : MonoBehaviour
     
     public void SetCard(string color, int value, bool forceColorFor8s)
     {
-        Debug.Log($"=== SetCard called: {GetCardDisplayValue(value)} of {color} ===");
+        // Debug.Log($"=== SetCard called: {GetCardDisplayValue(value)} of {color} ===");
         
         // CRITICAL FIX: Ensure components are initialized before setting card
         InitializeComponents();
@@ -187,29 +187,29 @@ public class CardController : MonoBehaviour
         
         // Regular card handling (or forced color for 8s)
         Color cardColor = GetCardColor(color);
-        Debug.Log($"Display value: {displayValue}, Card Color: {cardColor}");
+        // Debug.Log($"Display value: {displayValue}, Card Color: {cardColor}");
         
         // Set all text elements to the card color (they will show on the white circle)
         if (cardValueTop != null)
         {
             cardValueTop.text = displayValue;
             cardValueTop.color = cardColor;
-            Debug.Log("Set cardValueTop: " + displayValue + " with color: " + cardColor);
+            // Debug.Log("Set cardValueTop: " + displayValue + " with color: " + cardColor);
         }
         else
         {
-            Debug.LogWarning("cardValueTop is NULL!");
+            // Debug.LogWarning("cardValueTop is NULL!");
         }
         
         if (cardValueBottom != null)
         {
             cardValueBottom.text = displayValue;
             cardValueBottom.color = cardColor;
-            Debug.Log("Set cardValueBottom: " + displayValue + " with color: " + cardColor);
+            // Debug.Log("Set cardValueBottom: " + displayValue + " with color: " + cardColor);
         }
         else
         {
-            Debug.LogWarning("cardValueBottom is NULL!");
+            // Debug.LogWarning("cardValueBottom is NULL!");
         }
         
         // Set center card value 
@@ -217,18 +217,18 @@ public class CardController : MonoBehaviour
         {
             cardValueCenter.text = displayValue;
             cardValueCenter.color = cardColor;
-            Debug.Log("Set cardValueCenter: " + displayValue + " with color: " + cardColor);
+            // Debug.Log("Set cardValueCenter: " + displayValue + " with color: " + cardColor);
         }
         else
         {
-            Debug.LogWarning("cardValueCenter is NULL!");
+            // Debug.LogWarning("cardValueCenter is NULL!");
         }
         
         // Keep the main card background white/default
         if (cardBackground != null)
         {
             cardBackground.color = Color.white; // Keep the outer card white
-            Debug.Log("Set cardBackground to white");
+            // Debug.Log("Set cardBackground to white");
         }
         
         // Set the inner card (black area) to the card color
@@ -237,7 +237,7 @@ public class CardController : MonoBehaviour
             // For forced 8 card colors, use aggressive reset
             if (value == 8 && forceColorFor8s)
             {
-                Debug.Log("Using aggressive reset for forced 8 card color");
+                // Debug.Log("Using aggressive reset for forced 8 card color");
                 ForceResetImageComponent(innerCard, cardColor);
             }
             else
@@ -250,24 +250,24 @@ public class CardController : MonoBehaviour
                 innerCard.type = Image.Type.Simple;
                 innerCard.preserveAspect = false;
                 
-                Debug.Log($"Set innerCard: sprite=null, color={cardColor}, type=Simple");
-                Debug.Log($"InnerCard final state: sprite={(innerCard.sprite == null ? "NULL" : innerCard.sprite.name)}, color={innerCard.color}, type={innerCard.type}");
+                // Debug.Log($"Set innerCard: sprite=null, color={cardColor}, type=Simple");
+                // Debug.Log($"InnerCard final state: sprite={(innerCard.sprite == null ? "NULL" : innerCard.sprite.name)}, color={innerCard.color}, type={innerCard.type}");
             }
         }
         else
         {
-            Debug.LogWarning("innerCard is NULL!");
+            // Debug.LogWarning("innerCard is NULL!");
         }
         
         // CRITICAL FIX: Set outline color to match with enhanced reliability
         if (cardOutline != null)
         {
             cardOutline.effectColor = cardColor;
-            Debug.Log("✅ Set outline color: " + cardColor);
+            // Debug.Log("✅ Set outline color: " + cardColor);
         }
         else
         {
-            Debug.LogWarning("⚠️ cardOutline is NULL! Attempting to find outline again...");
+            // Debug.LogWarning("⚠️ cardOutline is NULL! Attempting to find outline again...");
             
             // Try to find outline again as a fallback
             InitializeComponents();
@@ -275,21 +275,21 @@ public class CardController : MonoBehaviour
             if (cardOutline != null)
             {
                 cardOutline.effectColor = cardColor;
-                Debug.Log("✅ Found outline on retry and set color: " + cardColor);
+                // Debug.Log("✅ Found outline on retry and set color: " + cardColor);
             }
             else
             {
-                Debug.LogError("❌ Still no outline found after retry!");
+                // Debug.LogError("❌ Still no outline found after retry!");
             }
         }
         
-        Debug.Log($"=== SetCard complete ===");
+        // Debug.Log($"=== SetCard complete ===");
     }
     
     // Special method for setting up 8 cards with custom appearance
     void SetEightCard(string displayValue)
     {
-        Debug.Log("=== Setting up special 8 card ===");
+        // Debug.Log("=== Setting up special 8 card ===");
         
         // CRITICAL FIX: Ensure components are initialized
         InitializeComponents();
@@ -329,7 +329,7 @@ public class CardController : MonoBehaviour
                 innerCard.color = Color.white; // White tint to show image normally
                 innerCard.type = Image.Type.Simple;
                 innerCard.preserveAspect = false;
-                Debug.Log("Set 8 card custom sprite");
+                // Debug.Log("Set 8 card custom sprite");
             }
             else
             {
@@ -338,7 +338,7 @@ public class CardController : MonoBehaviour
                 innerCard.color = Color.black;
                 innerCard.type = Image.Type.Simple;
                 innerCard.preserveAspect = false;
-                Debug.LogWarning("No eightCardSprite assigned, using black background");
+                // Debug.LogWarning("No eightCardSprite assigned, using black background");
             }
         }
         
@@ -346,11 +346,11 @@ public class CardController : MonoBehaviour
         if (cardOutline != null)
         {
             cardOutline.effectColor = Color.black;
-            Debug.Log("✅ Set 8-card outline to black");
+            // Debug.Log("✅ Set 8-card outline to black");
         }
         else
         {
-            Debug.LogWarning("⚠️ cardOutline is NULL for 8-card! Attempting to find outline...");
+            // Debug.LogWarning("⚠️ cardOutline is NULL for 8-card! Attempting to find outline...");
             
             // Try to find outline again as a fallback
             InitializeComponents();
@@ -358,21 +358,21 @@ public class CardController : MonoBehaviour
             if (cardOutline != null)
             {
                 cardOutline.effectColor = Color.black;
-                Debug.Log("✅ Found outline on retry and set to black for 8-card");
+                // Debug.Log("✅ Found outline on retry and set to black for 8-card");
             }
             else
             {
-                Debug.LogError("❌ Still no outline found for 8-card after retry!");
+                // Debug.LogError("❌ Still no outline found for 8-card after retry!");
             }
         }
         
-        Debug.Log("=== Special 8 card setup complete ===");
+        // Debug.Log("=== Special 8 card setup complete ===");
     }
     
     // Method to update an 8 card with a chosen color after color selection
     public void SetEightCardWithColor(string chosenColor) // Public method for GameManager
     {
-        Debug.Log($"=== Updating 8 card with chosen color: {chosenColor} ===");
+        // Debug.Log($"=== Updating 8 card with chosen color: {chosenColor} ===");
         
         // CRITICAL FIX: Ensure components are initialized
         InitializeComponents();
@@ -409,18 +409,18 @@ public class CardController : MonoBehaviour
         {
             innerCard.sprite = null; // Remove the spiral sprite
             innerCard.color = cardColor; // Set to chosen color
-            Debug.Log("Set 8 card inner color to: " + cardColor);
+            // Debug.Log("Set 8 card inner color to: " + cardColor);
         }
         
         // Set outline to match chosen color with enhanced reliability
         if (cardOutline != null)
         {
             cardOutline.effectColor = cardColor;
-            Debug.Log("✅ Set 8-card outline to chosen color: " + cardColor);
+            // Debug.Log("✅ Set 8-card outline to chosen color: " + cardColor);
         }
         else
         {
-            Debug.LogWarning("⚠️ cardOutline is NULL for 8-card color update! Attempting to find outline...");
+            // Debug.LogWarning("⚠️ cardOutline is NULL for 8-card color update! Attempting to find outline...");
             
             // Try to find outline again as a fallback
             InitializeComponents();
@@ -428,22 +428,22 @@ public class CardController : MonoBehaviour
             if (cardOutline != null)
             {
                 cardOutline.effectColor = cardColor;
-                Debug.Log("✅ Found outline on retry and set to chosen color: " + cardColor);
+                // Debug.Log("✅ Found outline on retry and set to chosen color: " + cardColor);
             }
             else
             {
-                Debug.LogError("❌ Still no outline found for 8-card color update after retry!");
+                // Debug.LogError("❌ Still no outline found for 8-card color update after retry!");
             }
         }
         
-        Debug.Log($"=== 8 card updated to {chosenColor} color ===");
+        // Debug.Log($"=== 8 card updated to {chosenColor} color ===");
     }
     
     // Public method to completely reset and force a card appearance - for debugging
     [ContextMenu("Force Reset To Yellow 8")]
     public void ForceResetToYellow8()
     {
-        Debug.Log("=== FORCE RESETTING CARD TO YELLOW 8 ===");
+        // Debug.Log("=== FORCE RESETTING CARD TO YELLOW 8 ===");
         
         // Force everything to yellow manually
         Color yellowColor = new Color(0.6f, 0.6f, 0.08f);
@@ -452,45 +452,45 @@ public class CardController : MonoBehaviour
         {
             cardValueTop.text = "8";
             cardValueTop.color = yellowColor;
-            Debug.Log("FORCED cardValueTop to yellow 8");
+            // Debug.Log("FORCED cardValueTop to yellow 8");
         }
         
         if (cardValueBottom != null)
         {
             cardValueBottom.text = "8";
             cardValueBottom.color = yellowColor;
-            Debug.Log("FORCED cardValueBottom to yellow 8");
+            // Debug.Log("FORCED cardValueBottom to yellow 8");
         }
         
         if (cardValueCenter != null)
         {
             cardValueCenter.text = "8";
             cardValueCenter.color = yellowColor;
-            Debug.Log("FORCED cardValueCenter to yellow 8");
+            // Debug.Log("FORCED cardValueCenter to yellow 8");
         }
         
         if (cardBackground != null)
         {
             cardBackground.color = Color.white;
-            Debug.Log("FORCED cardBackground to white");
+            // Debug.Log("FORCED cardBackground to white");
         }
         
         if (innerCard != null)
         {
             // AGGRESSIVE sprite clearing
             ForceResetImageComponent(innerCard, yellowColor);
-            Debug.Log($"FORCED innerCard reset to yellow");
+            // Debug.Log($"FORCED innerCard reset to yellow");
         }
         
         // CRITICAL FIX: Set outline with enhanced reliability
         if (cardOutline != null)
         {
             cardOutline.effectColor = yellowColor;
-            Debug.Log("✅ FORCED outline to yellow");
+            // Debug.Log("✅ FORCED outline to yellow");
         }
         else
         {
-            Debug.LogWarning("⚠️ cardOutline is NULL during force reset! Attempting to find outline...");
+            // Debug.LogWarning("⚠️ cardOutline is NULL during force reset! Attempting to find outline...");
             
             // Try to find outline again as a fallback
             InitializeComponents();
@@ -498,15 +498,15 @@ public class CardController : MonoBehaviour
             if (cardOutline != null)
             {
                 cardOutline.effectColor = yellowColor;
-                Debug.Log("✅ Found outline on retry and FORCED to yellow");
+                // Debug.Log("✅ Found outline on retry and FORCED to yellow");
             }
             else
             {
-                Debug.LogError("❌ Still no outline found during force reset after retry!");
+                // Debug.LogError("❌ Still no outline found during force reset after retry!");
             }
         }
         
-        Debug.Log("=== FORCE RESET COMPLETE ===");
+        // Debug.Log("=== FORCE RESET COMPLETE ===");
     }
     
     // Helper method to aggressively reset an Image component
@@ -533,34 +533,34 @@ public class CardController : MonoBehaviour
         // Re-enable
         imageComponent.enabled = true;
         
-        Debug.Log($"ForceResetImageComponent: sprite={(imageComponent.sprite == null ? "NULL" : imageComponent.sprite.name)}, color={imageComponent.color}, enabled={imageComponent.enabled}");
+        // Debug.Log($"ForceResetImageComponent: sprite={(imageComponent.sprite == null ? "NULL" : imageComponent.sprite.name)}, color={imageComponent.color}, enabled={imageComponent.enabled}");
     }
     
     // Diagnostic method to check current card state
     [ContextMenu("Diagnose Current Card State")]
     public void DiagnoseCurrentCardState()
     {
-        Debug.Log("=== CARD STATE DIAGNOSIS ===");
-        Debug.Log($"eightCardSprite assigned: {eightCardSprite != null}");
+        // Debug.Log("=== CARD STATE DIAGNOSIS ===");
+        // Debug.Log($"eightCardSprite assigned: {eightCardSprite != null}");
         if (eightCardSprite != null)
         {
-            Debug.Log($"eightCardSprite name: {eightCardSprite.name}");
+            // Debug.Log($"eightCardSprite name: {eightCardSprite.name}");
         }
         
         if (innerCard != null)
         {
-            Debug.Log($"innerCard.sprite: {(innerCard.sprite == null ? "NULL" : innerCard.sprite.name)}");
-            Debug.Log($"innerCard.color: {innerCard.color}");
-            Debug.Log($"innerCard.type: {innerCard.type}");
-            Debug.Log($"innerCard.enabled: {innerCard.enabled}");
-            Debug.Log($"innerCard.preserveAspect: {innerCard.preserveAspect}");
+            // Debug.Log($"innerCard.sprite: {(innerCard.sprite == null ? "NULL" : innerCard.sprite.name)}");
+            // Debug.Log($"innerCard.color: {innerCard.color}");
+            // Debug.Log($"innerCard.type: {innerCard.type}");
+            // Debug.Log($"innerCard.enabled: {innerCard.enabled}");
+            // Debug.Log($"innerCard.preserveAspect: {innerCard.preserveAspect}");
         }
         else
         {
-            Debug.Log("innerCard is NULL");
+            // Debug.Log("innerCard is NULL");
         }
         
-        Debug.Log("=== END DIAGNOSIS ===");
+        // Debug.Log("=== END DIAGNOSIS ===");
     }
     
     // Add test methods for easy testing
@@ -609,43 +609,43 @@ public class CardController : MonoBehaviour
     [ContextMenu("Debug Outline Status")]
     void DebugOutlineStatus()
     {
-        Debug.Log("=== DEBUGGING OUTLINE STATUS ===");
-        Debug.Log($"cardOutline assigned: {cardOutline != null}");
+        // Debug.Log("=== DEBUGGING OUTLINE STATUS ===");
+        // Debug.Log($"cardOutline assigned: {cardOutline != null}");
         
         if (cardOutline != null)
         {
-            Debug.Log($"Outline enabled: {cardOutline.enabled}");
-            Debug.Log($"Outline effect color: {cardOutline.effectColor}");
-            Debug.Log($"Outline effect distance: {cardOutline.effectDistance}");
-            Debug.Log($"Outline GameObject: {cardOutline.gameObject.name}");
+            // Debug.Log($"Outline enabled: {cardOutline.enabled}");
+            // Debug.Log($"Outline effect color: {cardOutline.effectColor}");
+            // Debug.Log($"Outline effect distance: {cardOutline.effectDistance}");
+            // Debug.Log($"Outline GameObject: {cardOutline.gameObject.name}");
         }
         
-        Debug.Log($"cardBackground assigned: {cardBackground != null}");
+        // Debug.Log($"cardBackground assigned: {cardBackground != null}");
         if (cardBackground != null)
         {
             Outline backgroundOutline = cardBackground.GetComponent<Outline>();
-            Debug.Log($"Background has outline: {backgroundOutline != null}");
+            // Debug.Log($"Background has outline: {backgroundOutline != null}");
             if (backgroundOutline != null)
             {
-                Debug.Log($"Background outline color: {backgroundOutline.effectColor}");
+                // Debug.Log($"Background outline color: {backgroundOutline.effectColor}");
             }
         }
         
         // Search for any outline components
         Outline[] allOutlines = GetComponentsInChildren<Outline>(true);
-        Debug.Log($"Total outline components found: {allOutlines.Length}");
+        // Debug.Log($"Total outline components found: {allOutlines.Length}");
         for (int i = 0; i < allOutlines.Length; i++)
         {
-            Debug.Log($"Outline {i}: {allOutlines[i].gameObject.name}, color: {allOutlines[i].effectColor}");
+            // Debug.Log($"Outline {i}: {allOutlines[i].gameObject.name}, color: {allOutlines[i].effectColor}");
         }
         
-        Debug.Log("=== OUTLINE DEBUG COMPLETE ===");
+        // Debug.Log("=== OUTLINE DEBUG COMPLETE ===");
     }
     
     [ContextMenu("Force Reinitialize Components")]
     void ForceReinitializeComponents()
     {
-        Debug.Log("=== FORCING COMPONENT REINITIALIZATION ===");
+        // Debug.Log("=== FORCING COMPONENT REINITIALIZATION ===");
         InitializeComponents();
         DebugOutlineStatus();
     }

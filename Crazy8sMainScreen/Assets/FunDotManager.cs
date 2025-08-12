@@ -29,7 +29,7 @@ public class FunDotManager : MonoBehaviour
     
     void Start()
     {
-        Debug.Log("=== FUN DOT MANAGER STARTING ===");
+        // Debug.Log("=== FUN DOT MANAGER STARTING ===");
         
         // Find GameManager if not assigned
         if (gameManager == null)
@@ -37,11 +37,11 @@ public class FunDotManager : MonoBehaviour
             gameManager = FindFirstObjectByType<GameManager>();
             if (gameManager != null)
             {
-                Debug.Log("✅ Found GameManager for future color synchronization");
+                // Debug.Log("✅ Found GameManager for future color synchronization");
             }
             else
             {
-                Debug.LogWarning("⚠️ GameManager not found - color sync will not work");
+                // Debug.LogWarning("⚠️ GameManager not found - color sync will not work");
             }
         }
         
@@ -51,7 +51,7 @@ public class FunDotManager : MonoBehaviour
         // Force start movement for all dots (in case they don't auto-start)
         StartCoroutine(EnsureDotsAreMoving());
         
-        Debug.Log($"=== FUN DOT MANAGER READY - {allDotMovers.Count} dots active ===");
+        // Debug.Log($"=== FUN DOT MANAGER READY - {allDotMovers.Count} dots active ===");
     }
     
     /// <summary>
@@ -62,18 +62,18 @@ public class FunDotManager : MonoBehaviour
         // Wait a few seconds for game to fully load
         yield return new WaitForSeconds(3f);
         
-        Debug.Log("🔍 Checking if fun dots are moving...");
+        // Debug.Log("🔍 Checking if fun dots are moving...");
         
         foreach (FunDotMover mover in allDotMovers)
         {
             if (mover != null)
             {
-                Debug.Log($"Ensuring {mover.gameObject.name} is moving");
+                // Debug.Log($"Ensuring {mover.gameObject.name} is moving");
                 mover.ResumeMovement(); // Force resume movement
             }
         }
         
-        Debug.Log($"✅ Ensured {allDotMovers.Count} dots are moving");
+        // Debug.Log($"✅ Ensured {allDotMovers.Count} dots are moving");
     }
     
     void SetupAllFunDots()
@@ -81,7 +81,7 @@ public class FunDotManager : MonoBehaviour
         // Always try to set up manually assigned dots first
         if (bigFunDots != null && bigFunDots.Length > 0)
         {
-            Debug.Log($"Using manually assigned BigFunDots: {bigFunDots.Length} found");
+            // Debug.Log($"Using manually assigned BigFunDots: {bigFunDots.Length} found");
             
             // Set up each manually assigned BigFunDot
             foreach (Transform bigDot in bigFunDots)
@@ -94,7 +94,7 @@ public class FunDotManager : MonoBehaviour
         }
         else
         {
-            Debug.Log("No BigFunDots manually assigned - searching for them...");
+            // Debug.Log("No BigFunDots manually assigned - searching for them...");
             FindAllBigFunDots();
             
             // Set up each found BigFunDot
@@ -107,7 +107,7 @@ public class FunDotManager : MonoBehaviour
             }
         }
         
-        Debug.Log($"Set up {allDotMovers.Count} fun dot movers");
+        // Debug.Log($"Set up {allDotMovers.Count} fun dot movers");
     }
     
     void FindAllBigFunDots()
@@ -115,7 +115,7 @@ public class FunDotManager : MonoBehaviour
         GameObject[] allObjects = FindObjectsByType<GameObject>(FindObjectsSortMode.None);
         List<Transform> foundDots = new List<Transform>();
         
-        Debug.Log($"🔍 Searching for BigFunDot objects...");
+        // Debug.Log($"🔍 Searching for BigFunDot objects...");
         
         foreach (GameObject obj in allObjects)
         {
@@ -123,28 +123,28 @@ public class FunDotManager : MonoBehaviour
             if (obj.name.IndexOf("BigFunDot", System.StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 foundDots.Add(obj.transform);
-                Debug.Log($"✅ Found: {obj.name}");
+                // Debug.Log($"✅ Found: {obj.name}");
             }
         }
         
         bigFunDots = foundDots.ToArray();
-        Debug.Log($"🎯 Total BigFunDot objects found: {bigFunDots.Length}");
+        // Debug.Log($"🎯 Total BigFunDot objects found: {bigFunDots.Length}");
         
         // List them all
         for (int i = 0; i < bigFunDots.Length; i++)
         {
-            Debug.Log($"   {i + 1}. {bigFunDots[i].name}");
+            // Debug.Log($"   {i + 1}. {bigFunDots[i].name}");
         }
         
         if (bigFunDots.Length == 0)
         {
-            Debug.LogError("❌ No BigFunDot objects found! Make sure your objects are named 'BigFunDot', 'BigFunDot2', etc.");
+            // Debug.LogError("❌ No BigFunDot objects found! Make sure your objects are named 'BigFunDot', 'BigFunDot2', etc.");
         }
     }
     
     void SetupSingleFunDot(Transform bigDot)
     {
-        Debug.Log($"Setting up BigFunDot: {bigDot.name}");
+        // Debug.Log($"Setting up BigFunDot: {bigDot.name}");
         
         // Look for SmallFunDot child
         Transform smallDot = null;
@@ -156,14 +156,14 @@ public class FunDotManager : MonoBehaviour
             if (child.name.Contains("SmallFunDot") || child.name.Contains("smallfundot"))
             {
                 smallDot = child;
-                Debug.Log($"Found SmallFunDot: {child.name}");
+                // Debug.Log($"Found SmallFunDot: {child.name}");
                 break;
             }
         }
         
         if (smallDot == null)
         {
-            Debug.LogWarning($"No SmallFunDot found in {bigDot.name}");
+            // Debug.LogWarning($"No SmallFunDot found in {bigDot.name}");
             return;
         }
         
@@ -172,7 +172,7 @@ public class FunDotManager : MonoBehaviour
         if (mover == null)
         {
             mover = smallDot.gameObject.AddComponent<FunDotMover>();
-            Debug.Log($"Added FunDotMover to {smallDot.name}");
+            // Debug.Log($"Added FunDotMover to {smallDot.name}");
         }
         
         // Configure the mover
@@ -183,7 +183,7 @@ public class FunDotManager : MonoBehaviour
         // Add to our list for management
         allDotMovers.Add(mover);
         
-        Debug.Log($"✅ Configured FunDotMover for {smallDot.name}");
+        // Debug.Log($"✅ Configured FunDotMover for {smallDot.name}");
     }
     
     /// <summary>
@@ -201,7 +201,7 @@ public class FunDotManager : MonoBehaviour
             }
         }
         
-        Debug.Log($"Updated all dot speeds to base: {newSpeed}");
+        // Debug.Log($"Updated all dot speeds to base: {newSpeed}");
     }
     
     /// <summary>
@@ -217,7 +217,7 @@ public class FunDotManager : MonoBehaviour
             }
         }
         
-        Debug.Log("Paused all fun dot animations");
+        // Debug.Log("Paused all fun dot animations");
     }
     
     /// <summary>
@@ -233,7 +233,7 @@ public class FunDotManager : MonoBehaviour
             }
         }
         
-        Debug.Log("Resumed all fun dot animations");
+        // Debug.Log("Resumed all fun dot animations");
     }
     
     /// <summary>
@@ -242,7 +242,7 @@ public class FunDotManager : MonoBehaviour
     /// </summary>
     public void SyncDotsWithCardColor(string cardColor)
     {
-        Debug.Log($"Future feature: Sync dots with card color: {cardColor}");
+        // Debug.Log($"Future feature: Sync dots with card color: {cardColor}");
         // TODO: Implement color synchronization
     }
     
@@ -252,7 +252,7 @@ public class FunDotManager : MonoBehaviour
     /// </summary>
     public void StartGameAnimation()
     {
-        Debug.Log("🎮 GAME STARTED - Activating fun dot animations!");
+        // Debug.Log("🎮 GAME STARTED - Activating fun dot animations!");
         
         // Resume all dots with a bit more energy for the game
         foreach (FunDotMover mover in allDotMovers)
@@ -265,11 +265,11 @@ public class FunDotManager : MonoBehaviour
                 mover.SetMoveSpeed(baseMoveSpeed + 50f); // Extra speed during game
                 mover.SetContainerRadius(dotContainerRadius + 20f); // Bigger movement area
                 
-                Debug.Log($"🎮 Activated game animation for {mover.gameObject.name}");
+                // Debug.Log($"🎮 Activated game animation for {mover.gameObject.name}");
             }
         }
         
-        Debug.Log($"🎮 Game animations started for {allDotMovers.Count} dots");
+        // Debug.Log($"🎮 Game animations started for {allDotMovers.Count} dots");
     }
     
     /// <summary>
@@ -277,7 +277,7 @@ public class FunDotManager : MonoBehaviour
     /// </summary>
     public void StopGameAnimation()
     {
-        Debug.Log("🛑 GAME ENDED - Slowing down fun dot animations");
+        // Debug.Log("🛑 GAME ENDED - Slowing down fun dot animations");
         
         foreach (FunDotMover mover in allDotMovers)
         {
@@ -287,11 +287,11 @@ public class FunDotManager : MonoBehaviour
                 mover.SetMoveSpeed(baseMoveSpeed * 0.5f); // Slower during lobby
                 mover.SetContainerRadius(dotContainerRadius * 0.7f); // Smaller movement area
                 
-                Debug.Log($"🛑 Slowed animation for {mover.gameObject.name}");
+                // Debug.Log($"🛑 Slowed animation for {mover.gameObject.name}");
             }
         }
         
-        Debug.Log("🛑 Game animations slowed for lobby mode");
+        // Debug.Log("🛑 Game animations slowed for lobby mode");
     }
     
     /// <summary>
@@ -300,25 +300,25 @@ public class FunDotManager : MonoBehaviour
     [ContextMenu("Test All Dots")]
     public void TestAllDots()
     {
-        Debug.Log("=== TESTING ALL FUN DOTS ===");
+        // Debug.Log("=== TESTING ALL FUN DOTS ===");
         
         for (int i = 0; i < allDotMovers.Count; i++)
         {
             FunDotMover mover = allDotMovers[i];
             if (mover != null)
             {
-                Debug.Log($"Dot {i}: {mover.gameObject.name} - Active: {mover.gameObject.activeInHierarchy}");
+                // Debug.Log($"Dot {i}: {mover.gameObject.name} - Active: {mover.gameObject.activeInHierarchy}");
                 
                 // Force immediate test movement
                 mover.ForceInstantMovement();
             }
             else
             {
-                Debug.LogWarning($"Dot {i}: NULL reference");
+                // Debug.LogWarning($"Dot {i}: NULL reference");
             }
         }
         
-        Debug.Log($"Total active dots: {allDotMovers.Count}");
+        // Debug.Log($"Total active dots: {allDotMovers.Count}");
     }
     
     /// <summary>
@@ -327,7 +327,7 @@ public class FunDotManager : MonoBehaviour
     [ContextMenu("Force All Dots Big Movement")]
     public void ForceAllDotsBigMovement()
     {
-        Debug.Log("=== FORCING BIG MOVEMENT FOR ALL DOTS ===");
+        // Debug.Log("=== FORCING BIG MOVEMENT FOR ALL DOTS ===");
         
         foreach (FunDotMover mover in allDotMovers)
         {
@@ -340,11 +340,11 @@ public class FunDotManager : MonoBehaviour
                 // Force restart movement
                 mover.ResumeMovement();
                 
-                Debug.Log($"✅ Boosted movement for {mover.gameObject.name}");
+                // Debug.Log($"✅ Boosted movement for {mover.gameObject.name}");
             }
         }
         
-        Debug.Log($"Boosted movement for {allDotMovers.Count} dots");
+        // Debug.Log($"Boosted movement for {allDotMovers.Count} dots");
     }
     
     /// <summary>
@@ -353,7 +353,7 @@ public class FunDotManager : MonoBehaviour
     [ContextMenu("Force Setup Dots")]
     public void ForceSetupDots()
     {
-        Debug.Log("=== FORCE SETUP DOTS ===");
+        // Debug.Log("=== FORCE SETUP DOTS ===");
         
         // Clear existing
         allDotMovers.Clear();
@@ -361,7 +361,7 @@ public class FunDotManager : MonoBehaviour
         // Re-setup
         SetupAllFunDots();
         
-        Debug.Log($"Force setup complete - {allDotMovers.Count} dots configured");
+        // Debug.Log($"Force setup complete - {allDotMovers.Count} dots configured");
     }
     
     /// <summary>
@@ -370,14 +370,15 @@ public class FunDotManager : MonoBehaviour
     [ContextMenu("List All Scene Objects")]
     public void ListAllSceneObjects()
     {
-        Debug.Log("=== ALL SCENE OBJECTS ===");
+        // Debug.Log("=== ALL SCENE OBJECTS ===");
         GameObject[] allObjects = FindObjectsByType<GameObject>(FindObjectsSortMode.None);
         
         foreach (GameObject obj in allObjects)
         {
-            Debug.Log($"Object: {obj.name} (Active: {obj.activeInHierarchy})");
+            // Debug.Log($"Object: {obj.name} (Active: {obj.activeInHierarchy})");
         }
         
-        Debug.Log($"Total objects: {allObjects.Length}");
+        // Debug.Log($"Total objects: {allObjects.Length}");
     }
 }
+

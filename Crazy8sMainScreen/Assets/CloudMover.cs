@@ -42,7 +42,7 @@ public class CloudMover : MonoBehaviour
         float offScreenX = -1400f; // Start far off screen like the example position
         rectTransform.anchoredPosition = new Vector2(offScreenX, rectTransform.anchoredPosition.y);
         
-        Debug.Log($"Cloud {gameObject.name}: screenWidth={screenWidth}, cloudWidth={cloudWidth}");
+        // Debug.Log($"Cloud {gameObject.name}: screenWidth={screenWidth}, cloudWidth={cloudWidth}");
         
         // Start with random delay to prevent all spawning at once - ensure minimum delay
         float startDelay = Random.Range(1f, maxStartDelay); // Start from 1 second minimum, not 0
@@ -88,7 +88,7 @@ public class CloudMover : MonoBehaviour
             image.color = color;
         }
         
-        Debug.Log($"Cloud {gameObject.name} starting to move: speed={speed}, startPos=({startX}, {randomY})");
+        // Debug.Log($"Cloud {gameObject.name} starting to move: speed={speed}, startPos=({startX}, {randomY})");
         
         isMoving = true;
     }
