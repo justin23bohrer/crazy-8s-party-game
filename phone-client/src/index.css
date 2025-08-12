@@ -169,6 +169,37 @@ html, body {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.player-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.player-name {
+  font-size: 1.1rem;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.game-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.turn-info {
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+.current-color {
+  font-size: 0.9rem;
+  opacity: 0.9;
 }
 
 .timer {

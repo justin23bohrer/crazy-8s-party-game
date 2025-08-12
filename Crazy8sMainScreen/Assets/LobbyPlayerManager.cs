@@ -7,6 +7,7 @@ using System.Collections.Generic;
 /// <summary>
 /// Manages player card positioning and display in the lobby screen
 /// Uses domino-4 layout for clean player arrangement
+/// Displays player colors (red, blue, green, yellow)
 /// </summary>
 public class LobbyPlayerManager : MonoBehaviour
 {
@@ -20,6 +21,12 @@ public class LobbyPlayerManager : MonoBehaviour
     [Header("Animation Settings")]
     public float popInDuration = 0.3f;
     public float staggerDelay = 0.2f;
+    
+    [Header("Player Colors")]
+    public Color redColor = new Color(0.8f, 0.1f, 0.1f, 1f);
+    public Color blueColor = new Color(0.1f, 0.1f, 0.8f, 1f);
+    public Color greenColor = new Color(0.1f, 0.6f, 0.1f, 1f);
+    public Color yellowColor = new Color(0.8f, 0.8f, 0.1f, 1f);
     
     private List<GameObject> activePlayerCards = new List<GameObject>();
     private HashSet<string> existingPlayerNames = new HashSet<string>(); // Track existing players
@@ -35,6 +42,21 @@ public class LobbyPlayerManager : MonoBehaviour
         if (playerCardPrefab == null)
         {
             Debug.LogError("LobbyPlayerManager: playerCardPrefab not assigned!");
+        }
+    }
+    
+    /// <summary>
+    /// Get the Unity Color for a player's assigned color string
+    /// </summary>
+    Color GetPlayerColor(string colorName)
+    {
+        switch (colorName?.ToLower())
+        {
+            case "red": return redColor;
+            case "blue": return blueColor;
+            case "green": return greenColor;
+            case "yellow": return yellowColor;
+            default: return Color.white; // Default color if unassigned
         }
     }
     
@@ -98,21 +120,35 @@ public class LobbyPlayerManager : MonoBehaviour
             }
             layoutElement.ignoreLayout = true;
             
-            // Set player name
+            // Set player name and color
             TextMeshProUGUI nameText = playerCard.GetComponentInChildren<TextMeshProUGUI>();
             if (nameText != null)
             {
                 string playerName = string.IsNullOrEmpty(player.name) ? "Player" : player.name;
                 nameText.text = playerName;
-                nameText.color = Color.white; // Ensure text is visible
+                nameText.color = Color.white; // Keep text white for readability
             }
             
-            // Set player color - REMOVED: Make background transparent instead of colored
+            // Set background transparent but find the specific Image component for player color
             Image cardImage = playerCard.GetComponent<Image>();
             if (cardImage != null)
             {
-                // Make background completely transparent (no colored rectangles)
+                // Make background completely transparent
                 cardImage.color = Color.clear;
+            }
+            
+            // Find the specific Image component in the prefab for the player color (usually named "Image")
+            Image[] allImages = playerCard.GetComponentsInChildren<Image>();
+            foreach (Image img in allImages)
+            {
+                // Look for an Image component that's not the main background (likely named "Image" or similar)
+                if (img != cardImage && img.gameObject.name.Contains("Image"))
+                {
+                    Color playerColor = GetPlayerColor(player.color);
+                    img.color = playerColor;
+                    Debug.Log($"Set player {player.name} color indicator to: {player.color} ({playerColor})");
+                    break; // Only set the first matching image
+                }
             }
             
             // Set horizontal position

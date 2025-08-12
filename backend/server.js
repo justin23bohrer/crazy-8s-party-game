@@ -90,15 +90,22 @@ io.on('connection', (socket) => {
         // Notify all clients in room about new player
         io.to(roomCode).emit('player-joined', {
           playerName: result.player.name,
+          playerColor: result.player.color,
           isFirstPlayer: result.player.isFirstPlayer,
           players: Array.from(roomManager.rooms.get(roomCode).players.values()).map(p => ({
             name: p.name,
+            color: p.color,
             cardCount: p.cardCount || 0,
             isFirstPlayer: p.isFirstPlayer || false
           }))
         });
         
-        callback({ success: true, roomData: result.roomData, isFirstPlayer: result.player.isFirstPlayer });
+        callback({ 
+          success: true, 
+          roomData: result.roomData, 
+          isFirstPlayer: result.player.isFirstPlayer,
+          playerColor: result.player.color 
+        });
       } else {
         callback({ success: false, error: result.error });
       }
@@ -140,6 +147,7 @@ io.on('connection', (socket) => {
           deckCount: result.gameState.deck.length,
           players: Array.from(room.players.values()).map(p => ({
             name: p.name,
+            color: p.color,
             cardCount: p.cardCount
           }))
         };
@@ -437,8 +445,10 @@ io.on('connection', (socket) => {
         // Notify room that player left
         io.to(result.roomCode).emit('player-left', {
           playerName: result.playerName,
+          playerColor: result.playerColor,
           players: Array.from(roomManager.rooms.get(result.roomCode)?.players.values() || []).map(p => ({
             name: p.name,
+            color: p.color,
             cardCount: p.cardCount
           }))
         });

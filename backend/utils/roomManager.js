@@ -6,6 +6,9 @@ class RoomManager {
     this.rooms = new Map(); // { roomCode: room object }
     this.playerToRoom = new Map(); // { playerId: roomCode } for quick lookup
     this.gameLogic = new Crazy8sGameLogic();
+    
+    // Available player colors (max 4 players)
+    this.availableColors = ['red', 'blue', 'green', 'yellow'];
   }
 
   // Generate unique 4-letter room code
@@ -25,7 +28,8 @@ class RoomManager {
     const roomCode = this.generateRoomCode();
     const room = {
       hostId,
-      players: new Map(), // { playerId: { name, id, connected: bool, cardCount: 0 } }
+      players: new Map(), // { playerId: { name, id, connected: bool, cardCount: 0, color: string } }
+      assignedColors: new Set(), // Track which colors are taken
       gameState: {
         phase: 'lobby', // lobby, playing, game-over
         currentPlayer: 0,
@@ -40,7 +44,7 @@ class RoomManager {
         animationEndTime: null // When animation will end
       },
       created: new Date(),
-      maxPlayers: 6 // Reasonable limit for Crazy 8s
+      maxPlayers: 4 // Max 4 players for color assignment (red, blue, green, yellow)
     };
     
     this.rooms.set(roomCode, room);
@@ -48,6 +52,29 @@ class RoomManager {
     
     console.log(`Crazy 8s room created: ${roomCode} by host ${hostId}`);
     return roomCode;
+  }
+
+  // Assign a random available color to a player
+  assignPlayerColor(room) {
+    const availableColors = this.availableColors.filter(color => !room.assignedColors.has(color));
+    
+    if (availableColors.length === 0) {
+      throw new Error('No colors available');
+    }
+    
+    // Pick a random color from available ones
+    const randomIndex = Math.floor(Math.random() * availableColors.length);
+    const assignedColor = availableColors[randomIndex];
+    
+    room.assignedColors.add(assignedColor);
+    return assignedColor;
+  }
+
+  // Release a player's color when they leave
+  releasePlayerColor(room, color) {
+    if (color) {
+      room.assignedColors.delete(color);
+    }
   }
 
   // Player joins room
@@ -72,11 +99,20 @@ class RoomManager {
       }
     }
 
+    // Assign a color to the player
+    let playerColor;
+    try {
+      playerColor = this.assignPlayerColor(room);
+    } catch (error) {
+      return { success: false, error: 'No available colors (room full)' };
+    }
+
     const player = {
       id: playerId,
       name: playerName,
       connected: true,
       cardCount: 0,
+      color: playerColor,
       joinedAt: new Date(),
       isFirstPlayer: room.players.size === 0 // True if this is the first player
     };
@@ -84,7 +120,7 @@ class RoomManager {
     room.players.set(playerId, player);
     this.playerToRoom.set(playerId, roomCode);
 
-    console.log(`Player ${playerName} (${playerId}) joined Crazy 8s room ${roomCode}${player.isFirstPlayer ? ' (FIRST PLAYER)' : ''}`);
+    console.log(`Player ${playerName} (${playerId}) joined Crazy 8s room ${roomCode} with color ${playerColor}${player.isFirstPlayer ? ' (FIRST PLAYER)' : ''}`);
     return { success: true, player, roomData: this.getRoomData(roomCode) };
   }
 
@@ -404,14 +440,19 @@ class RoomManager {
       return { roomClosed: true, roomCode };
     }
 
-    // Mark player as disconnected
+    // Mark player as disconnected and release their color
     const player = room.players.get(playerId);
     if (player) {
       const playerName = player.name;
+      const playerColor = player.color;
+      
+      // Release the player's color
+      this.releasePlayerColor(room, playerColor);
+      
       room.players.delete(playerId);
       this.playerToRoom.delete(playerId);
-      console.log(`Player ${playerName} disconnected from room ${roomCode}`);
-      return { roomCode, playerName };
+      console.log(`Player ${playerName} (${playerColor}) disconnected from room ${roomCode}`);
+      return { roomCode, playerName, playerColor };
     }
 
     return null;

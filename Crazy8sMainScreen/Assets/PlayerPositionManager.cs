@@ -13,8 +13,17 @@ public class PlayerPositionManager : MonoBehaviour
     [Header("Player UI Prefab")]
     public GameObject playerDisplayPrefab; // Simple name + card count
     
+    [Header("Player Colors")]
+    public Color redColor = new Color(0.8f, 0.1f, 0.1f, 1f);   // Red #CC1A1A
+    public Color blueColor = new Color(0.1f, 0.1f, 0.8f, 1f);   // Blue #1A1ACC
+    public Color greenColor = new Color(0.1f, 0.6f, 0.1f, 1f);   // Green #1A991A
+    public Color yellowColor = new Color(0.8f, 0.8f, 0.1f, 1f);  // Yellow
+    
     private List<Transform> playerPositions = new List<Transform>();
     private Dictionary<string, GameObject> activePlayerDisplays = new Dictionary<string, GameObject>();
+    private Dictionary<string, Color> originalPlayerColors = new Dictionary<string, Color>(); // Store original colors
+    private string currentHighlightedPlayer = ""; // Track who is currently highlighted
+    private PlayerData[] lastPlayerList; // Track the last player list to detect changes
     
     void Start()
     {
@@ -25,10 +34,38 @@ public class PlayerPositionManager : MonoBehaviour
         playerPositions.Add(playerPositionRight);  // Player 4 right
     }
     
+    /// <summary>
+    /// Get the Unity Color for a player's assigned color string
+    /// </summary>
+    Color GetPlayerColor(string colorName)
+    {
+        switch (colorName?.ToLower())
+        {
+            case "red": return redColor;
+            case "blue": return blueColor;
+            case "green": return greenColor;
+            case "yellow": return yellowColor;
+            default: return Color.white; // Default color if unassigned
+        }
+    }
+    
     public void UpdatePlayersDisplay(PlayerData[] players)
     {
         // Debug.Log("======= PLAYER POSITION DEBUG START =======");
         // Debug.Log("UpdatePlayersDisplay: Number of players = " + players.Length);
+        
+        // Check if the player list has actually changed before clearing everything
+        bool playerListChanged = HasPlayerListChanged(players);
+        
+        if (!playerListChanged)
+        {
+            Debug.Log("UpdatePlayersDisplay: Player list unchanged, just updating card counts without clearing displays");
+            // Just update card counts for existing players
+            UpdateExistingPlayerCardCounts(players);
+            return;
+        }
+        
+        Debug.Log("UpdatePlayersDisplay: Player list changed, rebuilding displays");
         
         // Check position containers
         // Debug.Log("Position containers check:");
@@ -38,7 +75,7 @@ public class PlayerPositionManager : MonoBehaviour
         // Debug.Log("- playerPositionRight: " + (playerPositionRight != null ? "FOUND" : "NULL"));
         // Debug.Log("- playerDisplayPrefab: " + (playerDisplayPrefab != null ? "FOUND" : "NULL"));
         
-        // Clear existing displays
+        // Clear existing displays only when player list actually changed
         // Debug.Log("Clearing existing player displays...");
         ClearAllPlayerDisplays();
         
@@ -96,6 +133,10 @@ public class PlayerPositionManager : MonoBehaviour
         
         // Debug.Log("Final activePlayerDisplays count: " + activePlayerDisplays.Count);
         // Debug.Log("======= PLAYER POSITION DEBUG END =======");
+        
+        // Update our tracking of the last player list
+        lastPlayerList = new PlayerData[players.Length];
+        System.Array.Copy(players, lastPlayerList, players.Length);
     }
     
     void CreatePlayerDisplay(PlayerData player, Transform position)
@@ -276,6 +317,30 @@ public class PlayerPositionManager : MonoBehaviour
             // Debug.LogError("Error during text component setup: " + e.Message);
         }
         
+        // Set player color on the main Image component (the rounded rectangle background)
+        try
+        {
+            UnityEngine.UI.Image mainImage = playerDisplay.GetComponent<UnityEngine.UI.Image>();
+            if (mainImage != null)
+            {
+                Color playerColor = GetPlayerColor(player.color);
+                mainImage.color = playerColor;
+                
+                // Store the original color for later use in highlighting
+                originalPlayerColors[player.name] = playerColor;
+                
+                // Debug.Log($"✓ Set player {player.name} color to: {player.color} ({playerColor}) on main Image component");
+            }
+            else
+            {
+                // Debug.LogWarning($"No main Image component found on PlayerDisplay for player {player.name}");
+            }
+        }
+        catch (System.Exception)
+        {
+            // Debug.LogError("Error setting player color: " + e.Message);
+        }
+        
         // Add to tracking dictionary BEFORE any Canvas operations
         try
         {
@@ -318,12 +383,18 @@ public class PlayerPositionManager : MonoBehaviour
     
     void ClearAllPlayerDisplays()
     {
+        Debug.Log("ClearAllPlayerDisplays: Clearing all player displays and resetting highlighting");
+        Debug.Log($"ClearAllPlayerDisplays: Resetting currentHighlightedPlayer from '{currentHighlightedPlayer}' to empty");
         foreach (var display in activePlayerDisplays.Values)
         {
             if (display != null)
                 Destroy(display);
         }
         activePlayerDisplays.Clear();
+        originalPlayerColors.Clear(); // Also clear the color tracking
+        currentHighlightedPlayer = ""; // Reset highlighted player
+        lastPlayerList = null; // Reset the player list tracking
+        Debug.Log("ClearAllPlayerDisplays: Completed - all tracking reset");
     }
     
     // Public method to clear displays when switching screens
@@ -334,41 +405,65 @@ public class PlayerPositionManager : MonoBehaviour
     
     public void HighlightCurrentPlayer(string playerName)
     {
-        // Debug.Log("=== HighlightCurrentPlayer called ===");
-        // Debug.Log("Highlighting player: " + playerName);
-        // Debug.Log("Active player displays count: " + activePlayerDisplays.Count);
+        // Normalize the player name for comparison (trim whitespace, handle null)
+        string normalizedPlayerName = string.IsNullOrEmpty(playerName) ? "" : playerName.Trim();
+        string normalizedCurrentPlayer = string.IsNullOrEmpty(currentHighlightedPlayer) ? "" : currentHighlightedPlayer.Trim();
         
-        // Reset all players to normal (white background)
+        // If the same player is already highlighted, don't do anything
+        if (normalizedCurrentPlayer == normalizedPlayerName)
+        {
+            Debug.Log($"HighlightCurrentPlayer: SKIPPING - Same player already highlighted: '{normalizedPlayerName}'");
+            return;
+        }
+        
+        Debug.Log($"HighlightCurrentPlayer: Changing from '{normalizedCurrentPlayer}' to '{normalizedPlayerName}'");
+        Debug.Log("Active player displays count: " + activePlayerDisplays.Count);
+        
+        // Reset all players to their original colors
         foreach (var kvp in activePlayerDisplays)
         {
             var display = kvp.Value;
             var image = display.GetComponent<UnityEngine.UI.Image>();
-            if (image != null)
+            if (image != null && originalPlayerColors.ContainsKey(kvp.Key))
             {
-                image.color = Color.white;
-                // Debug.Log("Reset player " + kvp.Key + " to normal color");
+                // Always restore to the exact original player color
+                image.color = originalPlayerColors[kvp.Key];
+                Debug.Log($"Reset player {kvp.Key} to original color: {originalPlayerColors[kvp.Key]}");
             }
         }
         
-        // Highlight current player (yellow background)
-        if (activePlayerDisplays.ContainsKey(playerName))
+        // Highlight current player with a brighter version of their color
+        if (activePlayerDisplays.ContainsKey(normalizedPlayerName))
         {
-            var image = activePlayerDisplays[playerName].GetComponent<UnityEngine.UI.Image>();
-            if (image != null)
+            var image = activePlayerDisplays[normalizedPlayerName].GetComponent<UnityEngine.UI.Image>();
+            if (image != null && originalPlayerColors.ContainsKey(normalizedPlayerName))
             {
-                image.color = Color.yellow;
-                // Debug.Log("Highlighted current player: " + playerName + " with yellow color");
+                // Always calculate brightness from the original color, not current color
+                Color originalColor = originalPlayerColors[normalizedPlayerName];
+                Color highlightColor = new Color(
+                    Mathf.Min(originalColor.r * 1.3f, 1f), // Brighten by 30% from original
+                    Mathf.Min(originalColor.g * 1.3f, 1f),
+                    Mathf.Min(originalColor.b * 1.3f, 1f),
+                    originalColor.a
+                );
+                image.color = highlightColor;
+                Debug.Log($"Highlighted current player: {normalizedPlayerName} from original {originalColor} to {highlightColor}");
             }
             else
             {
-                // Debug.LogError("Image component not found on player display for: " + playerName);
+                Debug.LogError("Image component not found on player display for: " + normalizedPlayerName);
             }
         }
         else
         {
-            // Debug.LogWarning("Player not found in active displays: " + playerName);
-            // Debug.Log("Available players: " + string.Join(", ", activePlayerDisplays.Keys));
+            Debug.LogWarning("Player not found in active displays: " + normalizedPlayerName);
+            Debug.Log("Available players: " + string.Join(", ", activePlayerDisplays.Keys));
         }
+        
+        // Update the currently highlighted player
+        currentHighlightedPlayer = normalizedPlayerName;
+        
+        Debug.Log($"HighlightCurrentPlayer: Successfully updated highlighting for '{normalizedPlayerName}'");
     }
     
     public void UpdatePlayerCardCount(string playerName, int cardCount)
@@ -420,5 +515,43 @@ public class PlayerPositionManager : MonoBehaviour
         
         // Debug.Log($"Using simple UI position for {targetTransform.name}: {uiPosition}");
         return uiPosition;
+    }
+    
+    /// <summary>
+    /// Check if the player list has actually changed (different players or different order)
+    /// </summary>
+    private bool HasPlayerListChanged(PlayerData[] newPlayers)
+    {
+        // If this is the first time or we have no previous list, it's changed
+        if (lastPlayerList == null || lastPlayerList.Length != newPlayers.Length)
+        {
+            return true;
+        }
+        
+        // Check if any player names or order changed
+        for (int i = 0; i < newPlayers.Length; i++)
+        {
+            if (lastPlayerList[i].name != newPlayers[i].name)
+            {
+                return true;
+            }
+        }
+        
+        return false; // No changes detected
+    }
+    
+    /// <summary>
+    /// Update card counts for existing players without rebuilding the entire display
+    /// </summary>
+    private void UpdateExistingPlayerCardCounts(PlayerData[] players)
+    {
+        foreach (var player in players)
+        {
+            UpdatePlayerCardCount(player.name, player.cardCount);
+        }
+        
+        // Update our tracking of the last player list
+        lastPlayerList = new PlayerData[players.Length];
+        System.Array.Copy(players, lastPlayerList, players.Length);
     }
 }

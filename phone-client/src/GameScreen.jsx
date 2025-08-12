@@ -283,6 +283,16 @@ function GameScreen({ gameData, onLeave, socketService }) {
     return colorEmojis[color] || color;
   };
 
+  const getPlayerColorHex = (color) => {
+    const colorHex = {
+      'red': '#dc2626',
+      'blue': '#2563eb',
+      'green': '#16a34a',
+      'yellow': '#ca8a04'
+    };
+    return colorHex[color] || '#6b7280';
+  };
+
   const getCardColor = (color) => { // Simplified - just return the color name
     return color;
   };
@@ -319,7 +329,9 @@ function GameScreen({ gameData, onLeave, socketService }) {
       <div className="status-message">
         <h2>🎮 Connected!</h2>
         <p>Room: {gameData.roomCode}</p>
-        <p>Player: {gameData.playerName}</p>
+        <p>Player: <span style={{ color: getPlayerColorHex(gameData?.playerColor) }}>
+          {gameData.playerName} ({getColorEmoji(gameData?.playerColor)})
+        </span></p>
         <div className="waiting-animation">
           <div className="dots">
             <span>.</span>
@@ -367,6 +379,11 @@ function GameScreen({ gameData, onLeave, socketService }) {
   const renderPlayingScreen = () => (
     <div className={`game-content playing ${isAnimating ? 'animation-locked' : ''}`}>
       <div className="game-header">
+        <div className="player-info">
+          <span className="player-name" style={{ color: getPlayerColorHex(gameData?.playerColor) }}>
+            {gameData?.playerName} ({getColorEmoji(gameData?.playerColor)})
+          </span>
+        </div>
         <div className="game-info">
           <span className="turn-info">
             {isPlayerTurn ? "Your Turn!" : `${currentPlayer}'s Turn`}
