@@ -23,10 +23,10 @@ public class LobbyPlayerManager : MonoBehaviour
     public float staggerDelay = 0.2f;
     
     [Header("Player Colors")]
-    public Color redColor = new Color(0.8f, 0.1f, 0.1f, 1f);
-    public Color blueColor = new Color(0.1f, 0.1f, 0.8f, 1f);
-    public Color greenColor = new Color(0.1f, 0.6f, 0.1f, 1f);
-    public Color yellowColor = new Color(0.8f, 0.8f, 0.1f, 1f);
+    public Color redColor   = new Color32(0xCC, 0x1A, 0x1A, 0xFF); 
+    public Color blueColor  = new Color32(0x1A, 0x1A, 0xCC, 0xFF); 
+    public Color greenColor = new Color32(0x1A, 0x99, 0x1A, 0xFF); 
+    public Color yellowColor= new Color32(0xCC, 0xCC, 0x1A, 0xFF); 
     
     private List<GameObject> activePlayerCards = new List<GameObject>();
     private HashSet<string> existingPlayerNames = new HashSet<string>(); // Track existing players
@@ -145,6 +145,7 @@ public class LobbyPlayerManager : MonoBehaviour
                 if (img != cardImage && img.gameObject.name.Contains("Image"))
                 {
                     Color playerColor = GetPlayerColor(player.color);
+                    playerColor.a = 1f;
                     img.color = playerColor;
                     Debug.Log($"Set player {player.name} color indicator to: {player.color} ({playerColor})");
                     break; // Only set the first matching image
