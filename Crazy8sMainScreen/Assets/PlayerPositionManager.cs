@@ -620,4 +620,12 @@ public class PlayerPositionManager : MonoBehaviour
         lastPlayerList = new PlayerData[players.Length];
         System.Array.Copy(players, lastPlayerList, players.Length);
     }
+    
+    /// <summary>
+    /// Get all currently active player display GameObjects for winner animation
+    /// </summary>
+    public List<GameObject> GetActivePlayerDisplays()
+    {
+        return new List<GameObject>(activePlayerDisplays.Values);
+    }
 }

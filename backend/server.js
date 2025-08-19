@@ -312,7 +312,8 @@ io.on('connection', (socket) => {
             winner: winner,
             players: Array.from(room.players.values()).map(p => ({
               name: p.name,
-              cardCount: p.cardCount
+              cardCount: p.cardCount,
+              color: p.color
             }))
           });
         }
