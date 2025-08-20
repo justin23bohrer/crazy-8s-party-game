@@ -432,6 +432,110 @@ io.on('connection', (socket) => {
   });
 
   // Handle disconnect
+  // Host control events - game restart functionality
+  socket.on('host-restart-game', (data, callback) => {
+    try {
+      const { roomCode } = data;
+      console.log(`🔄 Host requested restart for room: ${roomCode}`);
+      
+      const result = roomManager.restartGame(roomCode, socket.id);
+      
+      if (result.success) {
+        // Send updated game state to all clients
+        const room = roomManager.rooms.get(roomCode);
+        
+        // First, send explicit restart notification to all players
+        for (const [playerId] of room.players) {
+          const playerSocket = io.sockets.sockets.get(playerId);
+          if (playerSocket) {
+            console.log(`🔄 Sending explicit game-restarted event to player ${playerId}`);
+            playerSocket.emit('game-restarted', {
+              message: 'Host restarted the game - new round started!'
+            });
+          }
+        }
+        
+        // Then send individual game state to each player (phones)
+        for (const [playerId] of room.players) {
+          const playerSocket = io.sockets.sockets.get(playerId);
+          if (playerSocket) {
+            const playerGameState = roomManager.getGameStateForPlayer(roomCode, playerId);
+            console.log(`📱 Sending restart game state to player ${playerId}:`, JSON.stringify(playerGameState, null, 2));
+            playerSocket.emit('game-state-updated', {
+              gameState: playerGameState
+            });
+          }
+        }
+        
+        // Send overall game state to main screen (Unity)
+        const mainScreenGameState = {
+          currentPlayer: Array.from(room.players.values())[result.gameState.currentPlayer]?.name,
+          topCard: result.gameState.lastPlayedCard,
+          currentColor: result.gameState.currentColor,
+          deckCount: result.gameState.deck.length,
+          players: Array.from(room.players.values()).map(p => ({
+            name: p.name,
+            color: p.color,
+            cardCount: p.cardCount
+          }))
+        };
+        
+        io.to(roomCode).emit('game-state-updated', {
+          gameState: mainScreenGameState
+        });
+        
+        console.log(`✅ Game restarted successfully for room: ${roomCode}`);
+        
+        if (callback && typeof callback === 'function') {
+          callback({ success: true });
+        }
+      } else {
+        console.error(`❌ Failed to restart game: ${result.error}`);
+        if (callback && typeof callback === 'function') {
+          callback({ success: false, error: result.error });
+        }
+      }
+    } catch (error) {
+      console.error('Error handling host restart game:', error);
+      if (callback && typeof callback === 'function') {
+        callback({ success: false, error: error.message });
+      }
+    }
+  });
+
+  socket.on('host-new-players', (data, callback) => {
+    try {
+      const { roomCode } = data;
+      console.log(`👥 Host requested new players for room: ${roomCode}`);
+      
+      const result = roomManager.startNewGame(roomCode, socket.id);
+      
+      if (result.success) {
+        // Kick all current players back to home screen
+        io.to(roomCode).emit('players-kicked', {
+          message: 'Host started a new game with new players',
+          newRoomCode: result.newRoomCode
+        });
+        
+        console.log(`✅ New game started successfully - new room: ${result.newRoomCode}`);
+        
+        if (callback && typeof callback === 'function') {
+          callback({ success: true, newRoomCode: result.newRoomCode });
+        }
+      } else {
+        console.error(`❌ Failed to start new game: ${result.error}`);
+        if (callback && typeof callback === 'function') {
+          callback({ success: false, error: result.error });
+        }
+      }
+    } catch (error) {
+      console.error('Error handling host new players:', error);
+      if (callback && typeof callback === 'function') {
+        callback({ success: false, error: error.message });
+      }
+    }
+  });
+
   socket.on('disconnect', () => {
     console.log(`Client disconnected: ${socket.id}`);
     

@@ -35,6 +35,8 @@ function GameScreen({ gameData, onLeave, socketService }) {
     socketService.on('game-ended', handleGameEnded);
     socketService.on('player-action', handlePlayerAction);
     socketService.on('error', handleError);
+    socketService.on('players-kicked', handlePlayersKicked); // Host control event
+    socketService.on('game-restarted', handleGameRestarted); // Explicit restart event
 
     // Cleanup on unmount
     return () => {
@@ -46,6 +48,8 @@ function GameScreen({ gameData, onLeave, socketService }) {
       socketService.off('game-ended', handleGameEnded);
       socketService.off('player-action', handlePlayerAction);
       socketService.off('error', handleError);
+      socketService.off('players-kicked', handlePlayersKicked); // Host control event
+      socketService.off('game-restarted', handleGameRestarted); // Explicit restart event
     };
   }, []);
 
@@ -57,8 +61,66 @@ function GameScreen({ gameData, onLeave, socketService }) {
   };
 
   const handleGameStateUpdated = (data) => {
-    console.log('Game state updated:', data);
+    console.log('🔄 Game state updated:', data);
+    console.log('📱 Current gameState before processing:', gameState);
+    
+    // Check if game was restarted - detect from waiting, game-over, or any non-playing state
+    // Look for explicit restart indicators: phase=playing AND isRestarted=true
+    const gameWasRestarted = (gameState === 'game-over' || gameState === 'waiting') && 
+      data.gameState.phase === 'playing' && data.gameState.isRestarted === true;
+    
+    if (gameWasRestarted) {
+      console.log('🎮 RESTART DETECTED: Game restarted by host - switching back to playing mode');
+      setGameState('playing');
+      setMessage('Host restarted the game - new round started!');
+      
+      // Clear any color selector state
+      setShowColorSelector(false);
+      setPendingEight(null);
+      
+      // Reset animation state
+      setIsAnimating(false);
+      
+      // Clear 8 card color tracking for fresh start
+      setEightCardColors(new Map());
+      
+      // Clear any errors
+      setError(null);
+      
+      console.log('✅ Phone client switched to playing mode');
+    } else {
+      console.log(`📱 Not switching modes - current gameState: ${gameState}, phase: ${data.gameState?.phase}, isRestarted: ${data.gameState?.isRestarted}`);
+    }
+    
     updateGameState(data.gameState);
+    console.log('📱 Game state update processing complete');
+  };
+
+  const handleGameRestarted = (data) => {
+    console.log('🔄 EXPLICIT RESTART EVENT received:', data);
+    
+    if (gameState === 'game-over' || gameState === 'waiting') {
+      console.log('🎮 EXPLICIT RESTART: Switching back to playing mode');
+      setGameState('playing');
+      setMessage(data.message || 'Host restarted the game - new round started!');
+      
+      // Clear any color selector state
+      setShowColorSelector(false);
+      setPendingEight(null);
+      
+      // Reset animation state
+      setIsAnimating(false);
+      
+      // Clear 8 card color tracking for fresh start
+      setEightCardColors(new Map());
+      
+      // Clear any errors
+      setError(null);
+      
+      console.log('✅ Phone client switched to playing mode via explicit restart event');
+    } else {
+      console.log(`📱 Explicit restart received but not in correct state: ${gameState}`);
+    }
   };
 
   const handleCardPlayed = (data) => {
@@ -109,6 +171,16 @@ function GameScreen({ gameData, onLeave, socketService }) {
   const handleError = (data) => {
     setError(data.message);
     setTimeout(() => setError(null), 3000);
+  };
+
+  const handlePlayersKicked = (data) => {
+    console.log('Players kicked - returning to home:', data);
+    setMessage(data.message || 'Host started a new game with new players');
+    
+    // Navigate back to home screen so players can rejoin with new room code
+    setTimeout(() => {
+      onLeave(); // This should trigger navigation back to the join screen
+    }, 2000); // Give users a moment to read the message
   };
 
   const updateGameState = (gameState) => {
@@ -480,9 +552,37 @@ function GameScreen({ gameData, onLeave, socketService }) {
             </div>
           ))}
         </div>
-        <button onClick={onLeave} className="play-again-button">
-          Leave Game
-        </button>
+        
+        {isFirstPlayer ? (
+          <div className="host-controls">
+            <h3>👑 Host Controls</h3>
+            <div className="host-buttons">
+              <button 
+                onClick={() => socketService.emitGameAction('host-restart-game', { roomCode: gameData.roomCode })}
+                className="host-button play-again-button"
+              >
+                🔄 Play Again
+              </button>
+              <button 
+                onClick={() => socketService.emitGameAction('host-new-players', { roomCode: gameData.roomCode })}
+                className="host-button new-players-button"
+              >
+                👥 New Players
+              </button>
+            </div>
+            <button onClick={onLeave} className="leave-button secondary">
+              Leave Game
+            </button>
+          </div>
+        ) : (
+          <div className="waiting-for-host">
+            <h3>⏳ Waiting for host to choose...</h3>
+            <p>The host will decide whether to play again or start fresh with new players.</p>
+            <button onClick={onLeave} className="leave-button secondary">
+              Leave Game
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

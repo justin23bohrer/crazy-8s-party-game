@@ -922,3 +922,113 @@ html, body {
   cursor: not-allowed !important;
   opacity: 0.4 !important;
 }
+
+/* Host Controls - Game Over Screen */
+.host-controls {
+  margin-top: 30px;
+  text-align: center;
+}
+
+.host-controls h3 {
+  font-size: 1.3rem;
+  margin-bottom: 20px;
+  color: #ffd700;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.host-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.host-button {
+  padding: 15px 25px;
+  border: none;
+  border-radius: 12px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: none;
+}
+
+.host-button.play-again-button {
+  background: linear-gradient(45deg, #4CAF50, #45a049);
+  color: white;
+  box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+}
+
+.host-button.play-again-button:hover {
+  background: linear-gradient(45deg, #45a049, #388e3c);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+}
+
+.host-button.new-players-button {
+  background: linear-gradient(45deg, #2196F3, #1976D2);
+  color: white;
+  box-shadow: 0 4px 15px rgba(33, 150, 243, 0.3);
+}
+
+.host-button.new-players-button:hover {
+  background: linear-gradient(45deg, #1976D2, #1565C0);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(33, 150, 243, 0.4);
+}
+
+.leave-button.secondary {
+  margin-top: 10px;
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+.leave-button.secondary:hover {
+  background: rgba(255, 255, 255, 0.2);
+  opacity: 1;
+}
+
+/* Waiting for Host */
+.waiting-for-host {
+  margin-top: 30px;
+  text-align: center;
+}
+
+.waiting-for-host h3 {
+  font-size: 1.3rem;
+  margin-bottom: 15px;
+  color: #f39c12;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.waiting-for-host p {
+  font-size: 1rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 20px;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  backdrop-filter: blur(5px);
+}
+
+/* Mobile responsiveness for host controls */
+@media (max-width: 480px) {
+  .host-buttons {
+    gap: 12px;
+  }
+  
+  .host-button {
+    padding: 12px 20px;
+    font-size: 1rem;
+  }
+  
+  .host-controls h3,
+  .waiting-for-host h3 {
+    font-size: 1.2rem;
+  }
+}

@@ -416,7 +416,9 @@ class RoomManager {
       canDraw: room.gameState.deck?.length > 0,
       isYourTurn: playerIndex === room.gameState.currentPlayer,
       needSuitChoice: false, // Will be set true when an 8 is played
-      isAnimating: room.gameState.isAnimating || false // Include animation state for UI blocking
+      isAnimating: room.gameState.isAnimating || false, // Include animation state for UI blocking
+      phase: room.gameState.phase || 'playing', // Include game phase so phone clients know game state
+      isRestarted: room.gameState.turnCount === 0 // Indicate if this is a fresh game
     };
   }
 
@@ -504,6 +506,118 @@ class RoomManager {
       })),
       isAnimating: room.gameState.isAnimating || false // Include animation state
     };
+  }
+
+  // Restart game with same players - Step 4 implementation
+  restartGame(roomCode, requesterId) {
+    const room = this.rooms.get(roomCode);
+    if (!room) {
+      return { success: false, error: 'Room not found' };
+    }
+
+    // Check if requester is host OR first player
+    const requesterPlayer = room.players.get(requesterId);
+    const isAuthorized = room.hostId === requesterId || (requesterPlayer && requesterPlayer.isFirstPlayer);
+    
+    if (!isAuthorized) {
+      return { success: false, error: 'Not authorized - only host or first player can restart the game' };
+    }
+
+    if (room.players.size < 2) {
+      return { success: false, error: 'Need at least 2 players to restart' };
+    }
+
+    console.log(`🔄 Restarting game in room ${roomCode} with same players`);
+
+    // Reset winner animation and game state
+    room.gameState.isAnimating = false;
+    room.gameState.animationEndTime = null;
+
+    // Generate new shuffled deck using existing card creation logic
+    const deck = this.gameLogic.createDeck();
+    const playerCount = room.players.size;
+    
+    // Deal 7 cards to each existing player
+    const { hands, remainingDeck } = this.gameLogic.dealInitialHands(deck, playerCount);
+    
+    // Set a random starting card on discard pile (not an 8)
+    const startCard = this.gameLogic.findValidStartCard(remainingDeck);
+    
+    // Reset game state with fresh game
+    room.gameState.phase = 'playing';
+    room.gameState.currentPlayer = 0; // Reset current player to 0
+    room.gameState.deck = remainingDeck;
+    room.gameState.discardPile = [startCard];
+    room.gameState.playerHands = hands;
+    room.gameState.currentColor = startCard.color;
+    room.gameState.chosenColor = null;
+    room.gameState.lastPlayedCard = startCard;
+    room.gameState.turnCount = 0;
+
+    // Update player card counts for UI
+    let playerIndex = 0;
+    for (const [playerId, player] of room.players) {
+      player.cardCount = hands[playerIndex].length;
+      playerIndex++;
+    }
+
+    console.log(`✅ Game restarted successfully in room ${roomCode}`);
+    return { success: true, gameState: room.gameState };
+  }
+
+  // Start new game with new players - Step 5 implementation  
+  startNewGame(roomCode, requesterId) {
+    const room = this.rooms.get(roomCode);
+    if (!room) {
+      return { success: false, error: 'Room not found' };
+    }
+
+    // Check if requester is host
+    if (room.hostId !== requesterId) {
+      return { success: false, error: 'Not authorized - only host can start new game with new players' };
+    }
+
+    console.log(`👥 Starting new game with new players for room ${roomCode}`);
+
+    // Generate new room code
+    const newRoomCode = this.generateRoomCode();
+    
+    // Create new room for the host
+    const newRoom = {
+      hostId: requesterId,
+      players: new Map(),
+      assignedColors: new Set(),
+      gameState: {
+        phase: 'lobby',
+        currentPlayer: 0,
+        deck: [],
+        discardPile: [],
+        playerHands: {},
+        currentColor: null,
+        chosenColor: null,
+        lastPlayedCard: null,
+        turnCount: 0,
+        isAnimating: false,
+        animationEndTime: null
+      },
+      created: new Date(),
+      maxPlayers: 4
+    };
+
+    // Remove old room
+    this.rooms.delete(roomCode);
+    
+    // Clear all player mappings for the old room
+    for (const [playerId] of room.players) {
+      this.playerToRoom.delete(playerId);
+    }
+
+    // Set up new room
+    this.rooms.set(newRoomCode, newRoom);
+    this.playerToRoom.set(requesterId, newRoomCode);
+
+    console.log(`✅ New game created with room code: ${newRoomCode}`);
+    return { success: true, newRoomCode: newRoomCode };
   }
 }
 
