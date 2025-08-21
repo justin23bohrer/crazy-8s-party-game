@@ -16,6 +16,7 @@ function GameScreen({ gameData, onLeave, socketService }) {
   const [isFirstPlayer, setIsFirstPlayer] = useState(false);
   const [eightCardColors, setEightCardColors] = useState(new Map()); // Track chosen colors for 8 cards
   const [isAnimating, setIsAnimating] = useState(false); // Track if spiral animation is playing
+  const [isProcessingHostAction, setIsProcessingHostAction] = useState(false); // Prevent multiple host actions
 
   useEffect(() => {
     // Check if this player is the first player based on gameData
@@ -35,7 +36,7 @@ function GameScreen({ gameData, onLeave, socketService }) {
     socketService.on('game-ended', handleGameEnded);
     socketService.on('player-action', handlePlayerAction);
     socketService.on('error', handleError);
-    socketService.on('players-kicked', handlePlayersKicked); // Host control event
+    socketService.on('room-closed', handleRoomClosed); // Room closure event
     socketService.on('game-restarted', handleGameRestarted); // Explicit restart event
 
     // Cleanup on unmount
@@ -48,7 +49,7 @@ function GameScreen({ gameData, onLeave, socketService }) {
       socketService.off('game-ended', handleGameEnded);
       socketService.off('player-action', handlePlayerAction);
       socketService.off('error', handleError);
-      socketService.off('players-kicked', handlePlayersKicked); // Host control event
+      socketService.off('room-closed', handleRoomClosed); // Room closure event
       socketService.off('game-restarted', handleGameRestarted); // Explicit restart event
     };
   }, []);
@@ -117,6 +118,9 @@ function GameScreen({ gameData, onLeave, socketService }) {
       // Clear any errors
       setError(null);
       
+      // Reset processing state
+      setIsProcessingHostAction(false);
+      
       console.log('✅ Phone client switched to playing mode via explicit restart event');
     } else {
       console.log(`📱 Explicit restart received but not in correct state: ${gameState}`);
@@ -173,14 +177,42 @@ function GameScreen({ gameData, onLeave, socketService }) {
     setTimeout(() => setError(null), 3000);
   };
 
-  const handlePlayersKicked = (data) => {
-    console.log('Players kicked - returning to home:', data);
+  const handleRoomClosed = (data) => {
+    console.log('Room closed - returning to home:', data);
     setMessage(data.message || 'Host started a new game with new players');
+    
+    // Reset processing state
+    setIsProcessingHostAction(false);
     
     // Navigate back to home screen so players can rejoin with new room code
     setTimeout(() => {
       onLeave(); // This should trigger navigation back to the join screen
     }, 2000); // Give users a moment to read the message
+  };
+
+  // Handle host actions with proper state management
+  const handleHostAction = (action, data) => {
+    if (isProcessingHostAction) {
+      console.log(`Already processing host action, ignoring ${action}`);
+      return;
+    }
+    
+    setIsProcessingHostAction(true);
+    
+    if (action === 'host-new-players') {
+      // For new players, immediately kick everyone back to join screen
+      setMessage('Starting new game with new players...');
+      socketService.emitGameAction(action, data);
+      
+      // Immediately navigate back to join screen after a brief moment
+      setTimeout(() => {
+        onLeave();
+      }, 1500);
+    } else {
+      // For other actions like restart, stay on screen
+      setMessage(`Processing ${action}...`);
+      socketService.emitGameAction(action, data);
+    }
   };
 
   const updateGameState = (gameState) => {
@@ -558,14 +590,16 @@ function GameScreen({ gameData, onLeave, socketService }) {
             <h3>👑 Host Controls</h3>
             <div className="host-buttons">
               <button 
-                onClick={() => socketService.emitGameAction('host-restart-game', { roomCode: gameData.roomCode })}
+                onClick={() => handleHostAction('host-restart-game', { roomCode: gameData.roomCode })}
                 className="host-button play-again-button"
+                disabled={isProcessingHostAction}
               >
                 🔄 Play Again
               </button>
               <button 
-                onClick={() => socketService.emitGameAction('host-new-players', { roomCode: gameData.roomCode })}
+                onClick={() => handleHostAction('host-new-players', { roomCode: gameData.roomCode })}
                 className="host-button new-players-button"
+                disabled={isProcessingHostAction}
               >
                 👥 New Players
               </button>

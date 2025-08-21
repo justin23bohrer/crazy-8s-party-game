@@ -59,24 +59,12 @@ public class PlayerPositionManager : MonoBehaviour
         
         if (!playerListChanged)
         {
-            Debug.Log("UpdatePlayersDisplay: Player list unchanged, just updating card counts without clearing displays");
             // Just update card counts for existing players
             UpdateExistingPlayerCardCounts(players);
             return;
         }
         
-        Debug.Log("UpdatePlayersDisplay: Player list changed, rebuilding displays");
-        
-        // Check position containers
-        // Debug.Log("Position containers check:");
-        // Debug.Log("- playerPositionTop: " + (playerPositionTop != null ? "FOUND" : "NULL"));
-        // Debug.Log("- playerPositionBottom: " + (playerPositionBottom != null ? "FOUND" : "NULL"));
-        // Debug.Log("- playerPositionLeft: " + (playerPositionLeft != null ? "FOUND" : "NULL"));
-        // Debug.Log("- playerPositionRight: " + (playerPositionRight != null ? "FOUND" : "NULL"));
-        // Debug.Log("- playerDisplayPrefab: " + (playerDisplayPrefab != null ? "FOUND" : "NULL"));
-        
         // Clear existing displays only when player list actually changed
-        // Debug.Log("Clearing existing player displays...");
         ClearAllPlayerDisplays();
         
         // Handle different player counts with proper positioning
@@ -436,24 +424,15 @@ public class PlayerPositionManager : MonoBehaviour
     
     public void HighlightCurrentPlayer(string playerName)
     {
-        Debug.Log($"🎯 HighlightCurrentPlayer called with playerName: '{playerName}'");
-        
         // Normalize the player name for comparison (trim whitespace, handle null)
         string normalizedPlayerName = string.IsNullOrEmpty(playerName) ? "" : playerName.Trim();
         string normalizedCurrentPlayer = string.IsNullOrEmpty(currentHighlightedPlayer) ? "" : currentHighlightedPlayer.Trim();
         
-        Debug.Log($"🎯 Normalized: current='{normalizedCurrentPlayer}', new='{normalizedPlayerName}'");
-        
         // If the same player is already highlighted, don't do anything
         if (normalizedCurrentPlayer == normalizedPlayerName)
         {
-            Debug.Log($"HighlightCurrentPlayer: SKIPPING - Same player already highlighted: '{normalizedPlayerName}'");
             return;
         }
-        
-        Debug.Log($"🎯 HighlightCurrentPlayer: Changing from '{normalizedCurrentPlayer}' to '{normalizedPlayerName}'");
-        Debug.Log("🎯 Active player displays count: " + activePlayerDisplays.Count);
-        Debug.Log("🎯 Available player names: " + string.Join(", ", activePlayerDisplays.Keys));
     
         // Reset all players: disable FIRST outline only (keep second outline always enabled)
         foreach (var kvp in activePlayerDisplays)
@@ -462,31 +441,22 @@ public class PlayerPositionManager : MonoBehaviour
             var image = display.GetComponent<UnityEngine.UI.Image>();
             UnityEngine.UI.Outline[] outlines = display.GetComponents<UnityEngine.UI.Outline>();
             
-            Debug.Log($"🔄 Processing player '{kvp.Key}': Image={image != null}, Outlines={outlines?.Length ?? 0}");
-            
             if (image != null && originalPlayerColors.ContainsKey(kvp.Key))
             {
                 // Restore to original background color
                 image.color = originalPlayerColors[kvp.Key];
-                Debug.Log($"Reset player {kvp.Key} to original color: {originalPlayerColors[kvp.Key]}");
             }
             
             if (outlines != null && outlines.Length > 0)
             {
                 // Disable FIRST outline (turn indicator) - keep second outline enabled
                 outlines[0].enabled = false;
-                Debug.Log($"✅ Disabled FIRST outline for player {kvp.Key} (inactive turn)");
                 
                 // Keep second outline enabled if it exists
                 if (outlines.Length > 1)
                 {
                     outlines[1].enabled = true;
-                    Debug.Log($"✅ Kept SECOND outline enabled for player {kvp.Key}");
                 }
-            }
-            else
-            {
-                Debug.LogWarning($"❌ No Outline components found for player {kvp.Key}!");
             }
         }
         

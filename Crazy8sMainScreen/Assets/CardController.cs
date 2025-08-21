@@ -170,13 +170,14 @@ public class CardController : MonoBehaviour
     
     public void SetCard(string color, int value, bool forceColorFor8s)
     {
-        // Debug.Log($"=== SetCard called: {GetCardDisplayValue(value)} of {color} ===");
+        Debug.Log($"🃏 CARDCONTROLLER SETCARD: {color} {value} (force8={forceColorFor8s})");
         
         // CRITICAL FIX: Ensure components are initialized before setting card
         InitializeComponents();
         
         // Get display value
         string displayValue = GetCardDisplayValue(value);
+        Debug.Log($"🃏 Display value: {displayValue}");
         
         // Special handling for 8s (wild cards) - unless we're forcing the color
         if (value == 8 && !forceColorFor8s)
@@ -187,29 +188,29 @@ public class CardController : MonoBehaviour
         
         // Regular card handling (or forced color for 8s)
         Color cardColor = GetCardColor(color);
-        // Debug.Log($"Display value: {displayValue}, Card Color: {cardColor}");
+        Debug.Log($"🃏 Card color: {cardColor}");
         
         // Set all text elements to the card color (they will show on the white circle)
         if (cardValueTop != null)
         {
             cardValueTop.text = displayValue;
             cardValueTop.color = cardColor;
-            // Debug.Log("Set cardValueTop: " + displayValue + " with color: " + cardColor);
+            Debug.Log($"🃏 Set cardValueTop: {displayValue}");
         }
         else
         {
-            // Debug.LogWarning("cardValueTop is NULL!");
+            Debug.LogWarning($"❌ cardValueTop is NULL!");
         }
         
         if (cardValueBottom != null)
         {
             cardValueBottom.text = displayValue;
             cardValueBottom.color = cardColor;
-            // Debug.Log("Set cardValueBottom: " + displayValue + " with color: " + cardColor);
+            Debug.Log($"🃏 Set cardValueBottom: {displayValue}");
         }
         else
         {
-            // Debug.LogWarning("cardValueBottom is NULL!");
+            Debug.LogWarning($"❌ cardValueBottom is NULL!");
         }
         
         // Set center card value 
@@ -217,18 +218,22 @@ public class CardController : MonoBehaviour
         {
             cardValueCenter.text = displayValue;
             cardValueCenter.color = cardColor;
-            // Debug.Log("Set cardValueCenter: " + displayValue + " with color: " + cardColor);
+            Debug.Log($"🃏 Set cardValueCenter: {displayValue}");
         }
         else
         {
-            // Debug.LogWarning("cardValueCenter is NULL!");
+            Debug.LogWarning($"❌ cardValueCenter is NULL!");
         }
         
         // Keep the main card background white/default
         if (cardBackground != null)
         {
             cardBackground.color = Color.white; // Keep the outer card white
-            // Debug.Log("Set cardBackground to white");
+            Debug.Log($"🃏 Set cardBackground to white");
+        }
+        else
+        {
+            Debug.LogWarning($"❌ cardBackground is NULL!");
         }
         
         // Set the inner card (black area) to the card color
@@ -237,7 +242,6 @@ public class CardController : MonoBehaviour
             // For forced 8 card colors, use aggressive reset
             if (value == 8 && forceColorFor8s)
             {
-                // Debug.Log("Using aggressive reset for forced 8 card color");
                 ForceResetImageComponent(innerCard, cardColor);
             }
             else
@@ -250,24 +254,34 @@ public class CardController : MonoBehaviour
                 innerCard.type = Image.Type.Simple;
                 innerCard.preserveAspect = false;
                 
+                // CRITICAL: Ensure full opacity for vibrant colors
+                Color tempColor = innerCard.color;
+                tempColor.a = 1.0f; // Full alpha
+                innerCard.color = tempColor;
+                
+                // Force UI refresh to ensure color displays properly
+                innerCard.enabled = false;
+                innerCard.enabled = true;
+                
                 // Debug.Log($"Set innerCard: sprite=null, color={cardColor}, type=Simple");
                 // Debug.Log($"InnerCard final state: sprite={(innerCard.sprite == null ? "NULL" : innerCard.sprite.name)}, color={innerCard.color}, type={innerCard.type}");
             }
+            Debug.Log($"🃏 Set innerCard color: {cardColor}");
         }
         else
         {
-            // Debug.LogWarning("innerCard is NULL!");
+            Debug.LogWarning($"❌ innerCard is NULL!");
         }
         
         // CRITICAL FIX: Set outline color to match with enhanced reliability
         if (cardOutline != null)
         {
             cardOutline.effectColor = cardColor;
-            // Debug.Log("✅ Set outline color: " + cardColor);
+            Debug.Log($"🃏 Set cardOutline color: {cardColor}");
         }
         else
         {
-            // Debug.LogWarning("⚠️ cardOutline is NULL! Attempting to find outline again...");
+            Debug.LogWarning($"❌ cardOutline is NULL!");
             
             // Try to find outline again as a fallback
             InitializeComponents();
@@ -275,15 +289,15 @@ public class CardController : MonoBehaviour
             if (cardOutline != null)
             {
                 cardOutline.effectColor = cardColor;
-                // Debug.Log("✅ Found outline on retry and set color: " + cardColor);
+                Debug.Log($"🃏 Found outline on retry and set color: {cardColor}");
             }
             else
             {
-                // Debug.LogError("❌ Still no outline found after retry!");
+                Debug.LogError($"❌ Still no outline found after retry!");
             }
         }
         
-        // Debug.Log($"=== SetCard complete ===");
+        Debug.Log($"✅ CARDCONTROLLER SETCARD COMPLETE: {displayValue} of {color}");
     }
     
     // Special method for setting up 8 cards with custom appearance
@@ -707,5 +721,70 @@ public class CardController : MonoBehaviour
         {
             cardOutline.effectColor = Color.blue;
         }
+    }
+    
+    /// <summary>
+    /// Reset the card to its initial state - called when resetting the game
+    /// </summary>
+    public void ResetCard()
+    {
+        Debug.Log("🔄 RESETTING CARD CONTROLLER");
+        
+        // Clear all text elements
+        if (cardValueTop != null)
+        {
+            cardValueTop.text = "";
+            cardValueTop.color = Color.black;
+        }
+        
+        if (cardValueBottom != null)
+        {
+            cardValueBottom.text = "";
+            cardValueBottom.color = Color.black;
+        }
+        
+        if (cardValueCenter != null)
+        {
+            cardValueCenter.text = "";
+            cardValueCenter.color = Color.black;
+        }
+        
+        // Reset background to white/default
+        if (cardBackground != null)
+        {
+            cardBackground.color = Color.white;
+        }
+        
+        // Reset inner card to ready state (not invisible)
+        if (innerCard != null)
+        {
+            innerCard.sprite = null;
+            innerCard.color = Color.white; // Keep it visible and ready for new card
+            innerCard.type = Image.Type.Simple;
+            innerCard.preserveAspect = false;
+            
+            // CRITICAL: Ensure proper alpha for visibility
+            Color tempColor = innerCard.color;
+            tempColor.a = 1.0f; // Full opacity
+            innerCard.color = tempColor;
+            
+            // Force refresh the UI component
+            innerCard.enabled = false;
+            innerCard.enabled = true;
+            
+            Debug.Log("🃏 Reset innerCard to white with full opacity");
+        }
+        
+        // Reset outline to default
+        if (cardOutline != null)
+        {
+            cardOutline.effectColor = Color.black;
+            cardOutline.effectDistance = new Vector2(2, 2);
+        }
+        
+        // Ensure the card is visible
+        gameObject.SetActive(true);
+        
+        Debug.Log("✅ CARD CONTROLLER RESET COMPLETE");
     }
 }

@@ -507,17 +507,64 @@ io.on('connection', (socket) => {
     try {
       const { roomCode } = data;
       console.log(`👥 Host requested new players for room: ${roomCode}`);
+      console.log(`📡 Request came from socket: ${socket.id}`);
       
-      const result = roomManager.startNewGame(roomCode, socket.id);
+      // Get current room BEFORE calling startNewGame
+      const currentRoom = roomManager.rooms.get(roomCode);
+      if (!currentRoom) {
+        console.log(`❌ Room ${roomCode} not found`);
+        if (callback && typeof callback === 'function') {
+          callback({ success: false, error: 'Room not found' });
+        }
+        return;
+      }
+      
+      console.log(`🏠 Current room host: ${currentRoom.hostId}`);
+      console.log(`👥 Total players in room: ${currentRoom.players.size}`);
+      
+      // SIMPLIFIED APPROACH: Close the entire room - everyone gets kicked automatically
+      console.log(`� CLOSING ROOM ${roomCode} - all players will be automatically disconnected`);
+      
+      // Notify all players in the room that it's closing
+      io.to(roomCode).emit('room-closed', {
+        message: 'Host started a new game with new players',
+        reason: 'new-players'
+      });
+      
+      // Create new room
+      const result = roomManager.startNewGame(roomCode, currentRoom.hostId);
       
       if (result.success) {
-        // Kick all current players back to home screen
-        io.to(roomCode).emit('players-kicked', {
-          message: 'Host started a new game with new players',
-          newRoomCode: result.newRoomCode
-        });
+        // Make Unity (the host) join the new room
+        console.log(`🔌 Making Unity host join new room: ${result.newRoomCode}`);
+        console.log(`🔍 Looking for Unity socket with hostId: ${currentRoom.hostId}`);
+        
+        const unitySocket = io.sockets.sockets.get(currentRoom.hostId);
+        if (unitySocket) {
+          console.log(`✅ Found Unity socket: ${unitySocket.id}`);
+          console.log(`🏠 Making Unity join room: ${result.newRoomCode}`);
+          
+          unitySocket.join(result.newRoomCode);
+          
+          // Send Unity the new room code
+          console.log(`📡 Sending new-room-created event to Unity`);
+          unitySocket.emit('new-room-created', {
+            newRoomCode: result.newRoomCode,
+            message: 'New game created with new players'
+          });
+          
+          console.log(`✅ Successfully sent new-room-created event to Unity`);
+          console.log(`✅ Room ${roomCode} closed - Unity will restart and create new room`);
+        } else {
+          console.error(`❌ Unity socket NOT FOUND! hostId: ${currentRoom.hostId}`);
+          console.log(`🔍 Available sockets:`);
+          for (const [socketId, socket] of io.sockets.sockets) {
+            console.log(`  - Socket ID: ${socketId}`);
+          }
+        }
         
         console.log(`✅ New game started successfully - new room: ${result.newRoomCode}`);
+        console.log(`� Old room ${roomCode} closed - all players automatically kicked`);
         
         if (callback && typeof callback === 'function') {
           callback({ success: true, newRoomCode: result.newRoomCode });

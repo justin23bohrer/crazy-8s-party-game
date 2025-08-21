@@ -572,11 +572,6 @@ class RoomManager {
       return { success: false, error: 'Room not found' };
     }
 
-    // Check if requester is host
-    if (room.hostId !== requesterId) {
-      return { success: false, error: 'Not authorized - only host can start new game with new players' };
-    }
-
     console.log(`👥 Starting new game with new players for room ${roomCode}`);
 
     // Generate new room code
