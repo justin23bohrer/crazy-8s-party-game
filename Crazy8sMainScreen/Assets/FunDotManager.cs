@@ -66,14 +66,14 @@ public class FunDotManager : MonoBehaviour
         
         foreach (FunDotMover mover in allDotMovers)
         {
-            if (mover != null)
+            if (mover != null && mover.gameObject.activeInHierarchy)
             {
                 // Debug.Log($"Ensuring {mover.gameObject.name} is moving");
                 mover.ResumeMovement(); // Force resume movement
             }
         }
         
-        // Debug.Log($"✅ Ensured {allDotMovers.Count} dots are moving");
+        // Debug.Log($"✅ Ensured {allDotMovers.Count} active dots are moving");
     }
     
     void SetupAllFunDots()

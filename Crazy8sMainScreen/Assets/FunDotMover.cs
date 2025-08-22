@@ -53,6 +53,13 @@ public class FunDotMover : MonoBehaviour
     
     void StartRandomMovement()
     {
+        // Don't start coroutines on inactive GameObjects
+        if (!gameObject.activeInHierarchy)
+        {
+            // Debug.Log($"⚠️ Cannot start movement on inactive GameObject: {gameObject.name}");
+            return;
+        }
+        
         // Debug.Log($"🎯 StartRandomMovement called for {gameObject.name}");
         
         // Stop any existing movement
@@ -157,7 +164,8 @@ public class FunDotMover : MonoBehaviour
     /// </summary>
     public void ResumeMovement()
     {
-        if (movementCoroutine == null)
+        // Only resume if the GameObject is active
+        if (gameObject.activeInHierarchy && movementCoroutine == null)
         {
             StartRandomMovement();
         }

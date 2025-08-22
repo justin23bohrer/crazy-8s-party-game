@@ -141,6 +141,40 @@ public class CardController : MonoBehaviour
         {
             innerCard = transform.Find("InnerCard")?.GetComponent<Image>();
         }
+        
+        // Try to find logo image if not assigned
+        if (logoImage == null)
+        {
+            logoImage = transform.Find("Logo")?.GetComponent<Image>() ?? 
+                       transform.Find("LogoImage")?.GetComponent<Image>() ??
+                       transform.Find("GameLogo")?.GetComponent<Image>();
+                       
+            if (logoImage != null)
+            {
+                Debug.Log($"🃏 Found logo image: {logoImage.name}");
+            }
+        }
+        
+        // Try to find faceUpElements and logoElements if not assigned
+        if (faceUpElements == null)
+        {
+            Transform faceUpTransform = transform.Find("FaceUpElements") ?? transform.Find("CardElements");
+            if (faceUpTransform != null)
+            {
+                faceUpElements = faceUpTransform.gameObject;
+                Debug.Log($"🃏 Found faceUpElements: {faceUpElements.name}");
+            }
+        }
+        
+        if (logoElements == null)
+        {
+            Transform logoTransform = transform.Find("LogoElements") ?? transform.Find("Logo");
+            if (logoTransform != null)
+            {
+                logoElements = logoTransform.gameObject;
+                Debug.Log($"🃏 Found logoElements: {logoElements.name}");
+            }
+        }
     }
     
     public void SetCard(string color, int value)
@@ -162,6 +196,7 @@ public class CardController : MonoBehaviour
         // Special handling for 8s (wild cards) - unless we're forcing the color
         if (value == 8 && !forceColorFor8s)
         {
+            Debug.Log("🃏 Setting as 8 card (wild)");
             SetEightCard(displayValue);
             return;
         }
@@ -175,12 +210,14 @@ public class CardController : MonoBehaviour
         {
             cardValueTop.text = displayValue;
             cardValueTop.color = cardColor;
+            Debug.Log($"🃏 Set cardValueTop: {displayValue} with color {cardColor}");
         }
         
         if (cardValueBottom != null)
         {
             cardValueBottom.text = displayValue;
             cardValueBottom.color = cardColor;
+            Debug.Log($"🃏 Set cardValueBottom: {displayValue} with color {cardColor}");
         }
         
         // Set center card value 
@@ -188,12 +225,14 @@ public class CardController : MonoBehaviour
         {
             cardValueCenter.text = displayValue;
             cardValueCenter.color = cardColor;
+            Debug.Log($"🃏 Set cardValueCenter: {displayValue} with color {cardColor}");
         }
         
         // Keep the main card background white/default
         if (cardBackground != null)
         {
             cardBackground.color = Color.white; // Keep the outer card white
+            Debug.Log("🃏 Set cardBackground to white");
         }
         
         // Set the inner card (black area) to the card color
@@ -202,6 +241,7 @@ public class CardController : MonoBehaviour
             // For forced 8 card colors, use aggressive reset
             if (value == 8 && forceColorFor8s)
             {
+                Debug.Log("🃏 Using aggressive reset for forced 8 card color");
                 ForceResetImageComponent(innerCard, cardColor);
             }
             else
@@ -222,13 +262,20 @@ public class CardController : MonoBehaviour
                 // Force UI refresh to ensure color displays properly
                 innerCard.enabled = false;
                 innerCard.enabled = true;
+                
+                Debug.Log($"🃏 Set innerCard color to: {innerCard.color}");
             }
+        }
+        else
+        {
+            Debug.LogError("🃏 innerCard is null!");
         }
         
         // CRITICAL FIX: Set outline color to match with enhanced reliability
         if (cardOutline != null)
         {
             cardOutline.effectColor = cardColor;
+            Debug.Log($"🃏 Set cardOutline color to: {cardColor}");
         }
         else
         {
@@ -238,6 +285,11 @@ public class CardController : MonoBehaviour
             if (cardOutline != null)
             {
                 cardOutline.effectColor = cardColor;
+                Debug.Log($"🃏 Set cardOutline color to: {cardColor} (after re-init)");
+            }
+            else
+            {
+                Debug.LogError("🃏 cardOutline is null even after re-init!");
             }
         }
         
@@ -515,7 +567,7 @@ public class CardController : MonoBehaviour
     /// </summary>
     public void SetupFaceDownCard()
     {
-        Debug.Log("🃏 Setting up face-down card with logo");
+        Debug.Log("🃏 CARDCONTROLLER: Setting up face-down card with logo");
         
         // CRITICAL FIX: Ensure components are initialized (matching SetEightCard method)
         InitializeComponents();
@@ -527,18 +579,21 @@ public class CardController : MonoBehaviour
         {
             cardValueTop.text = "";
             cardValueTop.color = Color.clear; // Make completely transparent
+            Debug.Log("🃏 Cleared cardValueTop");
         }
         
         if (cardValueBottom != null)
         {
             cardValueBottom.text = "";
             cardValueBottom.color = Color.clear; // Make completely transparent
+            Debug.Log("🃏 Cleared cardValueBottom");
         }
         
         if (cardValueCenter != null)
         {
             cardValueCenter.text = "";
             cardValueCenter.color = Color.clear; // Make completely transparent
+            Debug.Log("🃏 Cleared cardValueCenter");
         }
         
         // Set inner card to BLACK (no color showing)
@@ -548,24 +603,70 @@ public class CardController : MonoBehaviour
             innerCard.color = Color.black;
             innerCard.type = Image.Type.Simple;
             innerCard.preserveAspect = false;
+            Debug.Log("🃏 Set innerCard to black");
+        }
+        else
+        {
+            Debug.LogError("🃏 innerCard is null!");
         }
         
         // Hide face-up elements
         if (faceUpElements != null)
+        {
             faceUpElements.SetActive(false);
+            Debug.Log("🃏 Hid faceUpElements");
+        }
+        else
+        {
+            // If faceUpElements is null, hide all text components manually
+            Debug.Log("🃏 faceUpElements is null - hiding text manually");
+            if (cardValueTop != null) cardValueTop.gameObject.SetActive(false);
+            if (cardValueBottom != null) cardValueBottom.gameObject.SetActive(false);
+            if (cardValueCenter != null) cardValueCenter.gameObject.SetActive(false);
+        }
         
         // Show logo elements
         if (logoElements != null)
+        {
             logoElements.SetActive(true);
+            Debug.Log("🃏 Showed logoElements");
+        }
+        else
+        {
+            // Try to find and show the logo image directly
+            if (logoImage != null)
+            {
+                logoImage.gameObject.SetActive(true);
+                Debug.Log("🃏 Showed logoImage directly");
+            }
+            else
+            {
+                // Try to find logo by name
+                Transform logoTransform = transform.Find("Logo") ?? transform.Find("LogoImage") ?? transform.Find("GameLogo");
+                if (logoTransform != null)
+                {
+                    logoTransform.gameObject.SetActive(true);
+                    Debug.Log("🃏 Found and showed logo by name");
+                }
+                else
+                {
+                    Debug.Log("🃏 logoElements is null - logo will stay visible if it exists");
+                }
+            }
+        }
         
         // Set card background to black/dark
         if (cardBackground != null)
+        {
             cardBackground.color = Color.black;
+            Debug.Log("🃏 Set cardBackground to black");
+        }
         
         // CRITICAL FIX: Set outline to BLACK with enhanced reliability (matching SetEightCard method)
         if (cardOutline != null)
         {
             cardOutline.effectColor = Color.black;
+            Debug.Log("🃏 Set cardOutline to black");
         }
         else
         {
@@ -575,10 +676,15 @@ public class CardController : MonoBehaviour
             if (cardOutline != null)
             {
                 cardOutline.effectColor = Color.black;
+                Debug.Log("🃏 Set cardOutline to black (after re-init)");
+            }
+            else
+            {
+                Debug.LogError("🃏 cardOutline is null even after re-init!");
             }
         }
         
-        Debug.Log("✅ Face-down card setup complete - should be black with logo");
+        Debug.Log("✅ CARDCONTROLLER: Face-down card setup complete - should be black with logo");
     }
     
     /// <summary>
@@ -618,10 +724,59 @@ public class CardController : MonoBehaviour
         
         // Switch from face down to face up at middle of animation
         if (logoElements != null)
+        {
             logoElements.SetActive(false);
+            Debug.Log("🃏 FLIP: Hid logoElements");
+        }
+        else
+        {
+            // Try to find and hide the logo image directly
+            if (logoImage != null)
+            {
+                logoImage.gameObject.SetActive(false);
+                Debug.Log("🃏 FLIP: Hid logoImage directly");
+            }
+            else
+            {
+                // Try to find logo by name and hide it
+                Transform logoTransform = transform.Find("Logo") ?? transform.Find("LogoImage") ?? transform.Find("GameLogo");
+                if (logoTransform != null)
+                {
+                    logoTransform.gameObject.SetActive(false);
+                    Debug.Log("🃏 FLIP: Found and hid logo by name");
+                }
+                else
+                {
+                    Debug.Log("🃏 FLIP: logoElements is null - can't hide logo, searching for Image components with logo");
+                    
+                    // Last resort: find all Image components and look for one that might be the logo
+                    Image[] images = GetComponentsInChildren<Image>();
+                    foreach (Image img in images)
+                    {
+                        if (img != cardBackground && img != innerCard && img.sprite != null)
+                        {
+                            // This might be the logo image
+                            img.gameObject.SetActive(false);
+                            Debug.Log($"🃏 FLIP: Hid potential logo image: {img.name}");
+                        }
+                    }
+                }
+            }
+        }
         
         if (faceUpElements != null)
+        {
             faceUpElements.SetActive(true);
+            Debug.Log("🃏 FLIP: Showed faceUpElements");
+        }
+        else
+        {
+            // If faceUpElements is null, show all text components manually
+            Debug.Log("🃏 FLIP: faceUpElements is null - showing text manually");
+            if (cardValueTop != null) cardValueTop.gameObject.SetActive(true);
+            if (cardValueBottom != null) cardValueBottom.gameObject.SetActive(true);
+            if (cardValueCenter != null) cardValueCenter.gameObject.SetActive(true);
+        };
         
         // Set the actual card using your existing method
         SetCard(color, value);

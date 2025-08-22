@@ -549,9 +549,9 @@ public class SpiralAnimationController : MonoBehaviour
     /// </summary>
     private IEnumerator AnimateBackgroundColor(CardData targetCard)
     {
-        if (gameManager == null || gameManager.colorChangerBackground == null)
+        if (gameManager == null)
         {
-            // Debug.LogWarning("GameManager or background image not available for background color animation");
+            // Debug.LogWarning("GameManager not available for background color animation");
             yield break;
         }
         
@@ -562,7 +562,10 @@ public class SpiralAnimationController : MonoBehaviour
         yield return new WaitForSeconds(0f);
         
         // Use GameManager's method to ensure consistent color blending (same as normal cards)
-        Color startColor = gameManager.colorChangerBackground.color;
+        // Color startColor = Color.white; // Default color for now
+        // TODO: Move background color logic to UIManager
+        
+        yield return null; // Placeholder
         
         // Get target color using the same method as normal cards
         var changeBackgroundMethod = gameManager.GetType().GetMethod("ChangeBackgroundToCardColor", 
@@ -594,8 +597,9 @@ public class SpiralAnimationController : MonoBehaviour
         {
             // Debug.LogWarning("Could not find ChangeBackgroundToCardColor method - using fallback");
             // Fallback: use the direct method call
-            Color targetColor = gameManager.GetBackgroundColor(targetCard.color);
-            gameManager.colorChangerBackground.color = targetColor;
+            // TODO: Move background color logic to UIManager
+            // Color targetColor = GetColorForCard(targetCard.color);
+            // gameManager.SetBackgroundColor(targetColor);
         }
         
         // Debug.Log("✅ Background color animation completed using same method as normal cards");

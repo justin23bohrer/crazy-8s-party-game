@@ -598,4 +598,24 @@ public class PlayerPositionManager : MonoBehaviour
     {
         return new List<GameObject>(activePlayerDisplays.Values);
     }
+    
+    /// <summary>
+    /// Find a specific player display GameObject by player name
+    /// </summary>
+    public GameObject FindPlayerDisplay(string playerName)
+    {
+        if (activePlayerDisplays.ContainsKey(playerName))
+        {
+            return activePlayerDisplays[playerName];
+        }
+        return null;
+    }
+    
+    /// <summary>
+    /// Get all currently active player display GameObjects (alias for GetActivePlayerDisplays)
+    /// </summary>
+    public List<GameObject> GetAllPlayerDisplays()
+    {
+        return GetActivePlayerDisplays();
+    }
 }
