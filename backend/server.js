@@ -308,14 +308,44 @@ io.on('connection', (socket) => {
         // Check for win condition
         if (room.gameState.playerHands[playerIndex].length === 0) {
           const winner = room.players.get(socket.id).name;
-          io.to(roomCode).emit('game-ended', {
-            winner: winner,
-            players: Array.from(room.players.values()).map(p => ({
-              name: p.name,
-              cardCount: p.cardCount,
-              color: p.color
-            }))
-          });
+          
+          console.log('🏆 WINNER DETECTED - Starting winner animation sequence');
+          
+          // 1. Set animation lock for winner animation (8 seconds)
+          roomManager.startAnimationLock(roomCode, 8000); // 8 second winner animation
+          
+          // 2. Set game phase to winner-animation (NOT game-over yet)
+          room.gameState.phase = 'winner-animation';
+          
+          // 3. Send winner event ONLY TO UNITY (main screen)
+          const hostSocket = io.sockets.sockets.get(room.hostId);
+          if (hostSocket) {
+            hostSocket.emit('winner-detected', {
+              winner: winner,
+              players: Array.from(room.players.values()).map(p => ({
+                name: p.name,
+                cardCount: p.cardCount,
+                color: p.color
+              }))
+            });
+          }
+          
+          // 4. Send updated game state to phones (with animation lock)
+          for (const [playerId] of room.players) {
+            const playerSocket = io.sockets.sockets.get(playerId);
+            if (playerSocket) {
+              const playerGameState = roomManager.getGameStateForPlayer(roomCode, playerId);
+              playerSocket.emit('game-state-updated', {
+                gameState: {
+                  ...playerGameState,
+                  isAnimating: true, // Lock phone UI during winner animation
+                  phase: 'winner-animation'
+                }
+              });
+            }
+          }
+          
+          console.log('🏆 Winner animation started - phones locked, Unity playing animation');
         }
       }
     } catch (error) {
@@ -407,11 +437,20 @@ io.on('connection', (socket) => {
       });
       
       if (roomCode) {
+        const room = roomManager.rooms.get(roomCode);
+        
+        console.log(`🎬 Room ${roomCode} phase: ${room.gameState.phase}, isAnimating: ${room.gameState.isAnimating}`);
+        
+        // CHECK: Don't clear animation lock if we're in winner-animation phase
+        if (room && room.gameState.phase === 'winner-animation') {
+          console.log('🎬 Skipping animation clear - winner animation in progress');
+          return;
+        }
+        
         console.log(`🎬 Clearing animation lock for room ${roomCode}`);
         roomManager.clearAnimationLock(roomCode);
         
         // Send updated game state to all players to unlock their UI
-        const room = roomManager.rooms.get(roomCode);
         if (room) {
           for (const [playerId] of room.players) {
             const playerSocket = io.sockets.sockets.get(playerId);
@@ -431,6 +470,56 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Handle winner animation completion from Unity main screen
+  socket.on('winner-animation-complete', (data) => {
+    console.log('🏆 Winner animation completion received from Unity main screen');
+    console.log('🏆 Raw data received:', data);
+    
+    try {
+      // Parse the JSON string from Unity
+      let parsedData;
+      if (typeof data === 'string') {
+        parsedData = JSON.parse(data);
+      } else {
+        parsedData = data;
+      }
+      
+      const { roomCode, winner } = parsedData;
+      console.log(`🏆 Parsed roomCode: ${roomCode}, winner: ${winner}`);
+      
+      const room = roomManager.rooms.get(roomCode);
+      
+      console.log(`🏆 Room ${roomCode} phase: ${room?.gameState?.phase}, isAnimating: ${room?.gameState?.isAnimating}`);
+      
+      if (room && room.gameState.phase === 'winner-animation') {
+        console.log(`🏆 Completing winner animation for ${winner} in room ${roomCode}`);
+        
+        // 1. Clear animation lock
+        roomManager.clearAnimationLock(roomCode);
+        
+        // 2. Set game phase to game-over
+        room.gameState.phase = 'game-over';
+        
+        // 3. Send game-over event to ALL clients (phones + Unity)
+        io.to(roomCode).emit('game-over', {
+          winner: winner,
+          players: Array.from(room.players.values()).map(p => ({
+            name: p.name,
+            cardCount: p.cardCount,
+            color: p.color
+          }))
+        });
+        
+        console.log(`🏆 Game over state sent to all clients in room ${roomCode}`);
+      } else {
+        console.log('🏆 No active winner animation found to complete');
+        console.log(`🏆 Room exists: ${!!room}, Room phase: ${room?.gameState?.phase}, Expected: winner-animation`);
+      }
+    } catch (error) {
+      console.error('Error handling winner animation completion:', error);
+    }
+  });
+
   // Handle disconnect
   // Host control events - game restart functionality
   socket.on('host-restart-game', (data, callback) => {
@@ -441,48 +530,40 @@ io.on('connection', (socket) => {
       const result = roomManager.restartGame(roomCode, socket.id);
       
       if (result.success) {
-        // Send updated game state to all clients
         const room = roomManager.rooms.get(roomCode);
         
-        // First, send explicit restart notification to all players
-        for (const [playerId] of room.players) {
-          const playerSocket = io.sockets.sockets.get(playerId);
-          if (playerSocket) {
-            console.log(`🔄 Sending explicit game-restarted event to player ${playerId}`);
-            playerSocket.emit('game-restarted', {
-              message: 'Host restarted the game - new round started!'
-            });
-          }
+        console.log(`🔄 Game restart successful - sending fresh game state to all clients`);
+        
+        // 1. Send game-started event to Unity (main screen)
+        const hostSocket = io.sockets.sockets.get(room.hostId);
+        if (hostSocket) {
+          const mainScreenGameState = {
+            currentPlayer: Array.from(room.players.values())[result.gameState.currentPlayer]?.name,
+            topCard: result.gameState.lastPlayedCard,
+            currentColor: result.gameState.currentColor,
+            deckCount: result.gameState.deck.length,
+            players: Array.from(room.players.values()).map(p => ({
+              name: p.name,
+              color: p.color,
+              cardCount: p.cardCount
+            }))
+          };
+          
+          hostSocket.emit('game-started', {
+            gameState: mainScreenGameState
+          });
         }
         
-        // Then send individual game state to each player (phones)
+        // 2. Send individual game state to each player (phones)
         for (const [playerId] of room.players) {
           const playerSocket = io.sockets.sockets.get(playerId);
           if (playerSocket) {
             const playerGameState = roomManager.getGameStateForPlayer(roomCode, playerId);
-            console.log(`📱 Sending restart game state to player ${playerId}:`, JSON.stringify(playerGameState, null, 2));
-            playerSocket.emit('game-state-updated', {
+            playerSocket.emit('game-started', {
               gameState: playerGameState
             });
           }
         }
-        
-        // Send overall game state to main screen (Unity)
-        const mainScreenGameState = {
-          currentPlayer: Array.from(room.players.values())[result.gameState.currentPlayer]?.name,
-          topCard: result.gameState.lastPlayedCard,
-          currentColor: result.gameState.currentColor,
-          deckCount: result.gameState.deck.length,
-          players: Array.from(room.players.values()).map(p => ({
-            name: p.name,
-            color: p.color,
-            cardCount: p.cardCount
-          }))
-        };
-        
-        io.to(roomCode).emit('game-state-updated', {
-          gameState: mainScreenGameState
-        });
         
         console.log(`✅ Game restarted successfully for room: ${roomCode}`);
         
@@ -507,9 +588,7 @@ io.on('connection', (socket) => {
     try {
       const { roomCode } = data;
       console.log(`👥 Host requested new players for room: ${roomCode}`);
-      console.log(`📡 Request came from socket: ${socket.id}`);
       
-      // Get current room BEFORE calling startNewGame
       const currentRoom = roomManager.rooms.get(roomCode);
       if (!currentRoom) {
         console.log(`❌ Room ${roomCode} not found`);
@@ -519,58 +598,32 @@ io.on('connection', (socket) => {
         return;
       }
       
-      console.log(`🏠 Current room host: ${currentRoom.hostId}`);
-      console.log(`👥 Total players in room: ${currentRoom.players.size}`);
+      console.log(`🏠 Closing room ${roomCode} and creating new one`);
       
-      // SIMPLIFIED APPROACH: Close the entire room - everyone gets kicked automatically
-      console.log(`� CLOSING ROOM ${roomCode} - all players will be automatically disconnected`);
-      
-      // Notify all players in the room that it's closing
+      // 1. Notify all current players that room is closing
       io.to(roomCode).emit('room-closed', {
         message: 'Host started a new game with new players',
         reason: 'new-players'
       });
       
-      // Create new room
+      // 2. Create new room with same host
       const result = roomManager.startNewGame(roomCode, currentRoom.hostId);
       
       if (result.success) {
-        // Make Unity (the host) join the new room
-        console.log(`🔌 Making Unity host join new room: ${result.newRoomCode}`);
-        console.log(`🔍 Looking for Unity socket with hostId: ${currentRoom.hostId}`);
+        console.log(`✅ New room created: ${result.newRoomCode}`);
         
-        const unitySocket = io.sockets.sockets.get(currentRoom.hostId);
-        if (unitySocket) {
-          console.log(`✅ Found Unity socket: ${unitySocket.id}`);
-          console.log(`🏠 Making Unity join room: ${result.newRoomCode}`);
-          
-          unitySocket.join(result.newRoomCode);
-          
-          // Send Unity the new room code
-          console.log(`📡 Sending new-room-created event to Unity`);
-          unitySocket.emit('new-room-created', {
-            newRoomCode: result.newRoomCode,
-            message: 'New game created with new players'
-          });
-          
-          console.log(`✅ Successfully sent new-room-created event to Unity`);
-          console.log(`✅ Room ${roomCode} closed - Unity will restart and create new room`);
-        } else {
-          console.error(`❌ Unity socket NOT FOUND! hostId: ${currentRoom.hostId}`);
-          console.log(`🔍 Available sockets:`);
-          for (const [socketId, socket] of io.sockets.sockets) {
-            console.log(`  - Socket ID: ${socketId}`);
-          }
-        }
-        
-        console.log(`✅ New game started successfully - new room: ${result.newRoomCode}`);
-        console.log(`� Old room ${roomCode} closed - all players automatically kicked`);
-        
+        // 3. Send new room code to Unity (host)
         if (callback && typeof callback === 'function') {
-          callback({ success: true, newRoomCode: result.newRoomCode });
+          callback({ 
+            success: true, 
+            newRoomCode: result.newRoomCode 
+          });
         }
+        
+        // 4. Unity should automatically join the new room via socket events
+        console.log(`🏠 Host should now join room ${result.newRoomCode}`);
       } else {
-        console.error(`❌ Failed to start new game: ${result.error}`);
+        console.error(`❌ Failed to create new room: ${result.error}`);
         if (callback && typeof callback === 'function') {
           callback({ success: false, error: result.error });
         }

@@ -74,7 +74,14 @@ public class GameStateManager : MonoBehaviour
             // Check if this is the first game state update (game starting)
             bool isGameStarting = string.IsNullOrEmpty(currentTopCard) && !string.IsNullOrEmpty(newTopCard);
             
-            // Update state and UI
+            // FIRST: Update players if included in state (creates player displays)
+            var players = ExtractPlayersFromGameState(jsonString);
+            if (players != null && players.Count > 0 && playerManager != null)
+            {
+                playerManager.UpdatePlayers(players.ToArray());
+            }
+            
+            // THEN: Update state and UI (including current player highlighting)
             UpdateCurrentPlayer(newCurrentPlayer);
             UpdateCurrentColor(newCurrentColor);
             UpdateDeckCount(newDeckCount);
@@ -85,13 +92,6 @@ public class GameStateManager : MonoBehaviour
             {
                 Debug.Log($"🎯 Game starting detected! Triggering card flip animation for: {newTopCard}");
                 cardAnimationManager.StartGameWithCardFlip();
-            }
-            
-            // Update players if included in state
-            var players = ExtractPlayersFromGameState(jsonString);
-            if (players != null && players.Count > 0 && playerManager != null)
-            {
-                playerManager.UpdatePlayers(players.ToArray());
             }
         }
         catch (System.Exception e)

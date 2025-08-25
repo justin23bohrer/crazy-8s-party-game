@@ -84,13 +84,12 @@ public class NetworkManager : MonoBehaviour
             socket.On("card-played", HandleCardPlayed);
             socket.On("card-drawn", HandleCardDrawn);
             socket.On("color-chosen", HandleColorChosen);
+            socket.On("winner-detected", HandleWinnerDetected);
             socket.On("game-over", HandleGameOver);
             socket.On("game-state-updated", HandleGameStateUpdated);
             socket.On("host-restart-game", HandleHostRestartGame);
             socket.On("new-room-created", HandleNewRoomCreated);
             socket.On("room-error", HandleRoomError);
-            socket.On("game-ended", HandleGameEnded);
-            socket.On("game-over-final", HandleGameOverFinal);
             
             Debug.Log("🚀 Starting socket connection...");
             socket.Connect();
@@ -196,6 +195,20 @@ public class NetworkManager : MonoBehaviour
         else
         {
             Debug.LogWarning("⚠️ Cannot send animation-complete - socket not connected");
+        }
+    }
+    
+    public void NotifyWinnerAnimationComplete(string roomCode, string winner)
+    {
+        Debug.Log($"📡 Sending winner-animation-complete to backend for room {roomCode}, winner {winner}");
+        if (socket != null && socket.Connected)
+        {
+            var data = $"{{\"roomCode\":\"{roomCode}\",\"winner\":\"{winner}\"}}";
+            socket.Emit("winner-animation-complete", data);
+        }
+        else
+        {
+            Debug.LogWarning("⚠️ Cannot send winner-animation-complete - socket not connected");
         }
     }
     
@@ -326,23 +339,6 @@ public class NetworkManager : MonoBehaviour
         }
     }
     
-    private void HandleGameOver(SocketIOResponse response)
-    {
-        try
-        {
-            string jsonString = response.GetValue().ToString();
-            string winner = ExtractWinnerFromJson(jsonString);
-            
-            EnqueueMainThreadAction(() => {
-                OnGameOver?.Invoke(winner);
-            });
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"Error handling game over: {e.Message}");
-        }
-    }
-    
     private void HandleGameStateUpdated(SocketIOResponse response)
     {
         try
@@ -406,37 +402,48 @@ public class NetworkManager : MonoBehaviour
         }
     }
     
-    private void HandleGameEnded(SocketIOResponse response)
+    private void HandleWinnerDetected(SocketIOResponse response)
     {
         try
         {
             string jsonString = response.GetValue().ToString();
+            Debug.Log($"🏆 Winner detected - starting animation: {jsonString}");
             
             EnqueueMainThreadAction(() => {
-                OnGameStateUpdated?.Invoke(jsonString);
-            });
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"Error handling game ended: {e.Message}");
-        }
-    }
-    
-    private void HandleGameOverFinal(SocketIOResponse response)
-    {
-        try
-        {
-            string jsonString = response.GetValue().ToString();
-            Debug.Log($"🏆 Received game-over-final: {jsonString}");
-            
-            EnqueueMainThreadAction(() => {
-                // This will trigger GameManager to show final game over screen
+                // This triggers the winner animation sequence
                 OnGameOver?.Invoke(jsonString);
             });
         }
         catch (Exception e)
         {
-            Debug.LogError($"Error handling game over final: {e.Message}");
+            Debug.LogError($"Error handling winner detected: {e.Message}");
+        }
+    }
+    
+    private void HandleGameOver(SocketIOResponse response)
+    {
+        try
+        {
+            string jsonString = response.GetValue().ToString();
+            Debug.Log($"🏆 Game over event received: {jsonString}");
+            
+            EnqueueMainThreadAction(() => {
+                // Show the final game over screen with host options (NOT another winner animation)
+                GameManager gameManager = FindFirstObjectByType<GameManager>();
+                if (gameManager != null)
+                {
+                    Debug.Log("🏆 Showing final game over screen with host options");
+                    gameManager.ShowGameOverScreen(jsonString);
+                }
+                else
+                {
+                    Debug.LogError("❌ GameManager not found for game over");
+                }
+            });
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"Error handling game over: {e.Message}");
         }
     }
     

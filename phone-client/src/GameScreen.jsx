@@ -27,6 +27,7 @@ function GameScreen({ gameData, onLeave, socketService }) {
   }, [gameData]);
 
   useEffect(() => {
+    console.log('🔧 PHONE: Setting up socket event listeners...');
     // Set up WebSocket event listeners for Crazy 8s
     socketService.on('game-started', handleGameStarted);
     socketService.on('game-state-updated', handleGameStateUpdated);
@@ -34,10 +35,13 @@ function GameScreen({ gameData, onLeave, socketService }) {
     socketService.on('card-drawn', handleCardDrawn);
     socketService.on('color-chosen', handleColorChosen); // Changed from suit-chosen to color-chosen
     socketService.on('game-ended', handleGameEnded);
+    socketService.on('game-over', handleGameOver);
     socketService.on('player-action', handlePlayerAction);
     socketService.on('error', handleError);
     socketService.on('room-closed', handleRoomClosed); // Room closure event
     socketService.on('game-restarted', handleGameRestarted); // Explicit restart event
+    
+    console.log('🔧 PHONE: Event listeners set up, including game-over');
 
     // Cleanup on unmount
     return () => {
@@ -47,6 +51,7 @@ function GameScreen({ gameData, onLeave, socketService }) {
       socketService.off('card-drawn', handleCardDrawn);
       socketService.off('color-chosen', handleColorChosen); // Changed from suit-chosen to color-chosen
       socketService.off('game-ended', handleGameEnded);
+      socketService.off('game-over', handleGameOver);
       socketService.off('player-action', handlePlayerAction);
       socketService.off('error', handleError);
       socketService.off('room-closed', handleRoomClosed); // Room closure event
@@ -100,31 +105,28 @@ function GameScreen({ gameData, onLeave, socketService }) {
   const handleGameRestarted = (data) => {
     console.log('🔄 EXPLICIT RESTART EVENT received:', data);
     
-    if (gameState === 'game-over' || gameState === 'waiting') {
-      console.log('🎮 EXPLICIT RESTART: Switching back to playing mode');
-      setGameState('playing');
-      setMessage(data.message || 'Host restarted the game - new round started!');
-      
-      // Clear any color selector state
-      setShowColorSelector(false);
-      setPendingEight(null);
-      
-      // Reset animation state
-      setIsAnimating(false);
-      
-      // Clear 8 card color tracking for fresh start
-      setEightCardColors(new Map());
-      
-      // Clear any errors
-      setError(null);
-      
-      // Reset processing state
-      setIsProcessingHostAction(false);
-      
-      console.log('✅ Phone client switched to playing mode via explicit restart event');
-    } else {
-      console.log(`📱 Explicit restart received but not in correct state: ${gameState}`);
-    }
+    // Accept restart from any state (game-over, waiting, playing)
+    console.log('🎮 EXPLICIT RESTART: Switching to playing mode');
+    setGameState('playing');
+    setMessage(data.message || 'Host restarted the game - new round started!');
+    
+    // Clear any color selector state
+    setShowColorSelector(false);
+    setPendingEight(null);
+    
+    // Reset animation state
+    setIsAnimating(false);
+    
+    // Clear 8 card color tracking for fresh start
+    setEightCardColors(new Map());
+    
+    // Clear any errors
+    setError(null);
+    
+    // Reset processing state
+    setIsProcessingHostAction(false);
+    
+    console.log('✅ Phone client switched to playing mode via explicit restart event');
   };
 
   const handleCardPlayed = (data) => {
@@ -163,9 +165,23 @@ function GameScreen({ gameData, onLeave, socketService }) {
   };
 
   const handleGameEnded = (data) => {
-    console.log('Game ended:', data);
+    console.log('🏆 Winner detected - staying locked until animation complete:', data);
+    // DON'T change gameState yet - keep it as 'playing'
+    // DON'T show game over screen yet
+    setMessage(`🏆 ${data.winner} wins! Watch the main screen! 🎬`);
+    setIsAnimating(true); // Lock UI completely during winner animation
+  };
+  
+  const handleGameOver = (data) => {
+    console.log('🏆 PHONE: Game over event received!', data);
+    console.log('🏆 PHONE: Current game state before:', gameState);
+    console.log('🏆 PHONE: Current isAnimating before:', isAnimating);
+    
     setGameState('game-over');
     setMessage(`Game Over! ${data.winner} wins!`);
+    setIsAnimating(false); // Unlock UI now that animation is complete
+    
+    console.log('🏆 PHONE: Game state set to game-over');
   };
 
   const handlePlayerAction = (data) => {
