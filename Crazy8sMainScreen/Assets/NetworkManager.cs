@@ -240,6 +240,34 @@ public class NetworkManager : MonoBehaviour
         }
     }
     
+    public void NotifyFirstCardFlipComplete()
+    {
+        Debug.Log("🎬 Sending first-card-flip-complete to backend");
+        if (socket != null && socket.Connected)
+        {
+            // Get room code from GameManager
+            var gameManager = FindFirstObjectByType<GameManager>();
+            string roomCode = gameManager?.GetCurrentRoomCode();
+            
+            if (!string.IsNullOrEmpty(roomCode))
+            {
+                var data = $"{{\"roomCode\":\"{roomCode}\"}}";
+                socket.Emit("first-card-flip-complete", data);
+                Debug.Log($"🎬 Sent first-card-flip-complete for room {roomCode}");
+            }
+            else
+            {
+                // Send without room code - backend will find the active game
+                socket.Emit("first-card-flip-complete", "");
+                Debug.LogWarning("⚠️ Sent first-card-flip-complete without room code - backend will auto-find");
+            }
+        }
+        else
+        {
+            Debug.LogWarning("⚠️ Cannot send first-card-flip-complete - socket not connected");
+        }
+    }
+    
     // Socket event handlers
     private void HandleRoomCreated(SocketIOResponse response)
     {

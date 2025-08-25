@@ -277,7 +277,61 @@ io.on('connection', (socket) => {
       const result = roomManager.handlePlayCard(room, playerIndex, cardIndex, chosenColor); // Pass chosenColor to handlePlayCard
       
       if (result.success) {
-        // CRITICAL: If an 8 was played, set animation lock IMMEDIATELY
+        // Handle winning 8 cards differently - no animation needed
+        if (result.winningEight) {
+          console.log('🏆 WINNING 8 DETECTED - Skipping spiral animation');
+          
+          // Send updated game state to each player individually FIRST (so they see card removed)
+          for (const [playerId] of room.players) {
+            const playerSocket = io.sockets.sockets.get(playerId);
+            if (playerSocket) {
+              const playerGameState = roomManager.getGameStateForPlayer(roomCode, playerId);
+              playerSocket.emit('game-state-updated', {
+                gameState: {
+                  ...playerGameState,
+                  isAnimating: true, // Lock UI during winner animation
+                  phase: 'winner-animation' // Let phones know game is over
+                }
+              });
+            }
+          }
+          
+          // Notify all players about the card played (without animation)
+          io.to(roomCode).emit('card-played', {
+            playerName: room.players.get(socket.id).name,
+            card: card,
+            winningEight: true, // Flag to indicate no spiral animation needed
+            gameState: roomManager.getMainScreenGameState(room)
+          });
+
+          // Start winner animation sequence immediately
+          const winner = room.players.get(socket.id).name;
+          console.log('🏆 WINNER DETECTED (winning 8) - Starting winner animation sequence');
+          
+          // Set animation lock for winner animation (8 seconds)
+          roomManager.startAnimationLock(roomCode, 8000);
+          
+          // Set game phase to winner-animation
+          room.gameState.phase = 'winner-animation';
+          
+          // Send winner event ONLY TO UNITY (main screen)
+          const hostSocket = io.sockets.sockets.get(room.hostId);
+          if (hostSocket) {
+            hostSocket.emit('winner-detected', {
+              winner: winner,
+              winningEight: true, // Flag for Unity to know this was a winning 8
+              players: Array.from(room.players.values()).map(p => ({
+                name: p.name,
+                cardCount: p.cardCount,
+                color: p.color
+              }))
+            });
+          }
+
+          return; // Skip normal processing for winning 8
+        }
+        
+        // CRITICAL: If an 8 was played (non-winning), set animation lock IMMEDIATELY
         if (card.rank === '8') {
           console.log('🎬 8 card played - setting animation lock IMMEDIATELY');
           roomManager.startAnimationLock(roomCode, 3300); // 3.3 seconds for spiral animation
@@ -487,6 +541,61 @@ io.on('connection', (socket) => {
       }
     } catch (error) {
       console.error('Error handling animation completion:', error);
+    }
+  });
+
+  // Handle first card flip animation completion from Unity main screen
+  socket.on('first-card-flip-complete', (data) => {
+    console.log('🎬 First card flip animation completion received from Unity main screen');
+    
+    try {
+      let roomCode;
+      
+      // Try to extract room code from data if provided
+      if (data && typeof data === 'string') {
+        try {
+          const parsed = JSON.parse(data);
+          roomCode = parsed.roomCode;
+        } catch {
+          roomCode = data; // In case it's just a plain room code string
+        }
+      } else if (data && data.roomCode) {
+        roomCode = data.roomCode;
+      }
+      
+      // If no room code provided, find the active game room
+      if (!roomCode) {
+        roomCode = Array.from(roomManager.rooms.keys()).find(code => {
+          const room = roomManager.rooms.get(code);
+          return room && room.gameState.phase === 'playing' && room.gameState.isAnimating;
+        });
+      }
+      
+      if (roomCode) {
+        console.log(`🎬 Handling first card flip completion for room ${roomCode}`);
+        const result = roomManager.handleFirstCardFlipComplete(roomCode);
+        
+        if (result.success) {
+          // Send updated game state to all players to re-enable their UI
+          const room = roomManager.rooms.get(roomCode);
+          if (room) {
+            for (const [playerId] of room.players) {
+              const playerSocket = io.sockets.sockets.get(playerId);
+              if (playerSocket) {
+                const playerGameState = roomManager.getGameStateForPlayer(roomCode, playerId);
+                playerSocket.emit('game-state-updated', {
+                  gameState: playerGameState
+                });
+              }
+            }
+            console.log(`🎬 First card flip complete - phones re-enabled for room ${roomCode}`);
+          }
+        }
+      } else {
+        console.log('🎬 No active first card flip animation found to complete');
+      }
+    } catch (error) {
+      console.error('Error handling first card flip completion:', error);
     }
   });
 

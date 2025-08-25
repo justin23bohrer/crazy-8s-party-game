@@ -183,11 +183,25 @@ public class GameStateManager : MonoBehaviour
     {
         if (string.IsNullOrEmpty(cardPlayedJson)) return;
         
+        // Check if this is a winning 8
+        bool isWinningEight = ExtractJsonValue(cardPlayedJson, "winningEight") == "true" ||
+                             ExtractJsonValue(cardPlayedJson, "winningEight") == "True";
+        
         // Extract card information
         string playedCard = ExtractPlayedCardFromJson(cardPlayedJson);
         if (!string.IsNullOrEmpty(playedCard))
         {
-            UpdateTopCard(playedCard);
+            // Update the current top card state
+            currentTopCard = playedCard;
+            
+            // Pass the winning 8 flag to the card animation manager directly
+            if (cardAnimationManager != null)
+            {
+                Debug.Log($"🃏 Calling CardAnimationManager.UpdateTopCard with: {playedCard}, winningEight: {isWinningEight}");
+                cardAnimationManager.UpdateTopCard(playedCard, isWinningEight);
+            }
+            
+            OnTopCardChanged?.Invoke(playedCard);
             
             // Extract color from the card
             string cardColor = ExtractCardColor(playedCard);

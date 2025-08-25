@@ -188,6 +188,22 @@ class RoomManager {
     console.log(`🎬 Started animation lock for ${durationMs}ms in room ${roomCode}`);
   }
 
+  // Handle first card flip animation completion (called by Unity)
+  handleFirstCardFlipComplete(roomCode) {
+    const room = this.rooms.get(roomCode);
+    if (!room) {
+      console.log(`❌ Room ${roomCode} not found for first card flip completion`);
+      return { success: false, error: 'Room not found' };
+    }
+
+    // Clear animation lock to re-enable phone interactions
+    room.gameState.isAnimating = false;
+    room.gameState.animationEndTime = null;
+    console.log(`🎬 First card flip animation completed in room ${roomCode} - phones re-enabled`);
+
+    return { success: true };
+  }
+
   // Clear animation lock (can be called manually if needed)
   clearAnimationLock(roomCode) {
     const room = this.rooms.get(roomCode);
@@ -234,6 +250,11 @@ class RoomManager {
     room.gameState.chosenColor = null; // Changed from chosenSuit to chosenColor
     room.gameState.lastPlayedCard = startCard;
     room.gameState.turnCount = 0;
+
+    // Enable animation lock for first card flip animation (3 seconds)
+    room.gameState.isAnimating = true;
+    room.gameState.animationEndTime = Date.now() + 3000; // 3 seconds for first card flip
+    console.log(`🎬 Started first card flip animation lock for 3000ms in room ${roomCode}`);
 
     // Update player card counts for UI
     let playerIndex = 0;
@@ -284,16 +305,28 @@ class RoomManager {
 
     // Handle 8s (wild cards)
     if (card.rank === '8') {
-      if (chosenColor && this.gameLogic.isValidColor(chosenColor)) { // Changed from chosenSuit to chosenColor and isValidSuit to isValidColor
+      // Check if this 8 wins the game
+      const isWinningPlay = this.gameLogic.hasWon(playerHand);
+      
+      if (isWinningPlay) {
+        // Skip color choice for winning 8 - just end the game
+        room.gameState.phase = 'game-over';
+        return { 
+          success: true, 
+          gameOver: true, 
+          winner: players[playerIndex].name,
+          winningEight: true // Flag to indicate this was a winning 8
+        };
+      } else if (chosenColor && this.gameLogic.isValidColor(chosenColor)) { // Changed from chosenSuit to chosenColor and isValidSuit to isValidColor
         room.gameState.chosenColor = chosenColor; // Changed from chosenSuit to chosenColor
         room.gameState.currentColor = chosenColor; // Changed from currentSuit to currentColor
       } else {
-        // Need to choose color
+        // Need to choose color for non-winning 8
         return { 
           success: true, 
           needColorChoice: true, // Changed from needSuitChoice to needColorChoice
-          gameOver: this.gameLogic.hasWon(playerHand),
-          winner: this.gameLogic.hasWon(playerHand) ? players[playerIndex].name : null
+          gameOver: false,
+          winner: null
         };
       }
     } else {

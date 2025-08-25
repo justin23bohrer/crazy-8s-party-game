@@ -273,7 +273,18 @@ function GameScreen({ gameData, onLeave, socketService }) {
         console.log('✅ UI unlocked - animation complete');
       }
     }
-    
+
+    // Handle game phase changes
+    if (gameState.phase) {
+      console.log('📱 Game phase received:', gameState.phase);
+      if (gameState.phase === 'winner-animation' || gameState.phase === 'game-over') {
+        console.log('🏆 Winner animation or game over - disabling UI');
+        setIsAnimating(true); // Lock UI during winner animation/game over
+        setShowColorSelector(false);
+        setPendingEight(null);
+      }
+    }
+
     if (gameState.currentPlayer !== undefined) {
       // Convert player index to player name
       if (typeof gameState.currentPlayer === 'number' && gameState.players) {
@@ -308,11 +319,26 @@ function GameScreen({ gameData, onLeave, socketService }) {
     try {
       setError(null);
       
-      // If it's an 8, show color selector
+      // If it's an 8, check if this would be a winning play
       if (card.rank === '8') {
-        setPendingEight(card);
-        setShowColorSelector(true);
-        return;
+        // Check if this is the last card (winning play)
+        const isWinningPlay = playerHand.length === 1; // This card is the last one
+        
+        if (isWinningPlay) {
+          console.log('🏆 Playing winning 8 - skipping color selection');
+          // Play the winning 8 directly without color selection
+          socketService.emitGameAction('play-card', {
+            roomCode: gameData.roomCode,
+            card: card
+            // No chosenColor needed for winning 8
+          });
+          return;
+        } else {
+          // Non-winning 8 - show color selector
+          setPendingEight(card);
+          setShowColorSelector(true);
+          return;
+        }
       }
 
       socketService.emitGameAction('play-card', {

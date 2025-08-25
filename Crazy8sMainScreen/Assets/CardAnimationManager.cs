@@ -122,7 +122,12 @@ public class CardAnimationManager : MonoBehaviour
     
     public void UpdateTopCard(string cardValue)
     {
-        Debug.Log($"🎬 UpdateTopCard called with: '{cardValue}' (flipInProgress: {isCardFlipAnimationInProgress})");
+        UpdateTopCard(cardValue, false);
+    }
+    
+    public void UpdateTopCard(string cardValue, bool isWinningEight = false)
+    {
+        Debug.Log($"🎬 UpdateTopCard called with: '{cardValue}' (flipInProgress: {isCardFlipAnimationInProgress}, winningEight: {isWinningEight})");
         
         // Skip updating during flip animation
         if (isCardFlipAnimationInProgress)
@@ -130,20 +135,20 @@ public class CardAnimationManager : MonoBehaviour
             Debug.Log("🎬 Skipping UpdateTopCard - flip animation in progress");
             return;
         }
-        
+
         if (topCardImage == null || string.IsNullOrEmpty(cardValue)) 
         {
             Debug.LogError($"🎬 Cannot update card - topCardImage: {topCardImage != null}, cardValue: '{cardValue}'");
             return;
         }
-        
+
         CardController cardController = topCardImage.GetComponent<CardController>();
         if (cardController == null)
         {
             Debug.Log("🎬 Adding CardController component to topCardImage");
             cardController = topCardImage.gameObject.AddComponent<CardController>();
         }
-        
+
         CardData cardData = ParseCardValue(cardValue);
         if (cardData == null) 
         {
@@ -175,12 +180,20 @@ public class CardAnimationManager : MonoBehaviour
         }
         else
         {
-            HandleEightCard(cardController, cardData);
+            HandleEightCard(cardController, cardData, isWinningEight);
         }
     }
     
-    private void HandleEightCard(CardController cardController, CardData cardData)
+    private void HandleEightCard(CardController cardController, CardData cardData, bool isWinningEight = false)
     {
+        if (isWinningEight)
+        {
+            // Winning 8 - just show as regular 8 card without animation
+            Debug.Log("🏆 Winning 8 detected - showing as regular card without spiral animation");
+            cardController.SetCard(cardData.color, 8);
+            return;
+        }
+        
         if (currentEightCardFinalColor != null)
         {
             // 8 card already has final color
