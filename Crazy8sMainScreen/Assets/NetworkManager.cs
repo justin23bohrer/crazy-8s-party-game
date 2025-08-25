@@ -280,8 +280,10 @@ public class NetworkManager : MonoBehaviour
         try
         {
             string jsonString = response.GetValue().ToString();
+            Debug.Log($"🎮 UNITY: Game-started event received: {jsonString}");
             
             EnqueueMainThreadAction(() => {
+                Debug.Log($"🎮 UNITY: Invoking OnGameStarted event");
                 OnGameStarted?.Invoke(jsonString);
             });
         }
@@ -360,11 +362,10 @@ public class NetworkManager : MonoBehaviour
         try
         {
             string jsonString = response.GetValue().ToString();
+            Debug.Log($"🔄 UNITY: Host restart received - but game-started event should follow");
             
-            EnqueueMainThreadAction(() => {
-                // Restart with same players
-                OnGameStateUpdated?.Invoke(jsonString);
-            });
+            // Don't do anything here - the backend will send a game-started event
+            // which will properly trigger the restart flow via HandleGameStarted
         }
         catch (Exception e)
         {
@@ -377,9 +378,17 @@ public class NetworkManager : MonoBehaviour
         try
         {
             string jsonString = response.GetValue().ToString();
+            Debug.Log($"🏠 UNITY: New room created event received: {jsonString}");
+            
             string roomCode = ExtractRoomCodeFromJson(jsonString);
+            Debug.Log($"🏠 UNITY: Extracted new room code: {roomCode}");
+            
+            // Join the new room as host
+            Debug.Log($"🏠 UNITY: Joining new room as host: {roomCode}");
+            socket.Emit("host-join-room", new { roomCode = roomCode });
             
             EnqueueMainThreadAction(() => {
+                Debug.Log($"🏠 UNITY: Triggering OnRoomCreated for new room: {roomCode}");
                 OnRoomCreated?.Invoke(roomCode);
             });
         }
@@ -450,7 +459,14 @@ public class NetworkManager : MonoBehaviour
     // JSON parsing utilities
     private string ExtractRoomCodeFromJson(string json)
     {
-        return ExtractJsonValue(json, "roomCode");
+        // Try "newRoomCode" first (for new-room-created events)
+        string roomCode = ExtractJsonValue(json, "newRoomCode");
+        if (string.IsNullOrEmpty(roomCode))
+        {
+            // Fall back to "roomCode" (for regular room-created events)
+            roomCode = ExtractJsonValue(json, "roomCode");
+        }
+        return roomCode;
     }
     
     private string ExtractWinnerFromJson(string json)

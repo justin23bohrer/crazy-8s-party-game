@@ -93,6 +93,9 @@ function GameScreen({ gameData, onLeave, socketService }) {
       // Clear any errors
       setError(null);
       
+      // Reset processing state so host buttons work again
+      setIsProcessingHostAction(false);
+      
       console.log('✅ Phone client switched to playing mode');
     } else {
       console.log(`📱 Not switching modes - current gameState: ${gameState}, phase: ${data.gameState?.phase}, isRestarted: ${data.gameState?.isRestarted}`);
@@ -228,6 +231,12 @@ function GameScreen({ gameData, onLeave, socketService }) {
       // For other actions like restart, stay on screen
       setMessage(`Processing ${action}...`);
       socketService.emitGameAction(action, data);
+      
+      // Reset processing state after timeout as fallback
+      setTimeout(() => {
+        setIsProcessingHostAction(false);
+        console.log('🔄 Reset processing state after timeout');
+      }, 5000); // 5 second timeout
     }
   };
 

@@ -115,6 +115,26 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Host joins room (for new players scenario)
+  socket.on('host-join-room', (data) => {
+    try {
+      const { roomCode } = data;
+      console.log(`🏠 Host ${socket.id} joining room ${roomCode}`);
+      
+      // Verify room exists
+      if (roomManager.rooms.has(roomCode)) {
+        socket.join(roomCode);
+        console.log(`✅ Host ${socket.id} successfully joined room ${roomCode}`);
+      } else {
+        console.error(`❌ Room ${roomCode} not found for host join`);
+        socket.emit('room-error', `Room ${roomCode} not found`);
+      }
+    } catch (error) {
+      console.error('Error in host-join-room:', error);
+      socket.emit('room-error', error.message);
+    }
+  });
+
   // Host starts game
   socket.on('start-game', (data, callback) => {
     try {
@@ -612,7 +632,7 @@ io.on('connection', (socket) => {
       if (result.success) {
         console.log(`✅ New room created: ${result.newRoomCode}`);
         
-        // 3. Send new room code to Unity (host)
+        // 3. Send new room code to Unity (host) via callback AND socket event
         if (callback && typeof callback === 'function') {
           callback({ 
             success: true, 
@@ -620,7 +640,18 @@ io.on('connection', (socket) => {
           });
         }
         
-        // 4. Unity should automatically join the new room via socket events
+        // 4. Also emit socket event to Unity with new room code
+        const hostSocket = io.sockets.sockets.get(currentRoom.hostId);
+        if (hostSocket) {
+          console.log(`📡 Sending new-room-created event to Unity`);
+          hostSocket.emit('new-room-created', {
+            newRoomCode: result.newRoomCode,
+            message: 'New game created with new players'
+          });
+        } else {
+          console.error(`❌ Host socket not found for new room notification`);
+        }
+        
         console.log(`🏠 Host should now join room ${result.newRoomCode}`);
       } else {
         console.error(`❌ Failed to create new room: ${result.error}`);
