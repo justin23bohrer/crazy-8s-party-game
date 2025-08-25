@@ -1,27 +1,28 @@
 // Crazy 8s Game Logic - Handles deck, cards, and game rules
 class Crazy8sGameLogic {
   constructor() {
-    this.suits = ['hearts', 'diamonds', 'clubs', 'spades'];
-    this.ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
-    this.suitSymbols = {
-      hearts: '♥️',
-      diamonds: '♦️',
-      clubs: '♣️',
-      spades: '♠️'
+    // Using colors instead of traditional suits
+    this.colors = ['red', 'blue', 'green', 'yellow'];
+    this.ranks = ['1', '2', '3', '4', '5', '6', '7', '8', '9']; // Simplified rank system
+    this.colorEmojis = {
+      red: '🔴',
+      blue: '🔵', 
+      green: '🟢',
+      yellow: '🟡'
     };
   }
 
-  // Create a standard 52-card deck
+  // Create a 36-card deck (4 colors × 9 ranks)
   createDeck() {
     const deck = [];
     
-    this.suits.forEach(suit => {
+    this.colors.forEach(color => {
       this.ranks.forEach(rank => {
         deck.push({
-          suit: suit,
+          color: color,
           rank: rank,
-          isWild: rank === '8',
-          color: (suit === 'hearts' || suit === 'diamonds') ? 'red' : 'black'
+          isWild: rank === '8', // 8s are wild cards that change color
+          suit: color // Keep for backward compatibility, but now represents color
         });
       });
     });
@@ -54,17 +55,17 @@ class Crazy8sGameLogic {
   }
 
   // Check if a card can be played
-  canPlayCard(card, topCard, chosenSuit = null) {
+  canPlayCard(card, topCard, chosenColor = null) {
     // 8s (wild cards) can always be played
     if (card.rank === '8') return true;
 
-    // If top card is an 8, check against chosen suit
-    if (topCard.rank === '8' && chosenSuit) {
-      return card.suit === chosenSuit;
+    // If top card is an 8, check against chosen color
+    if (topCard.rank === '8' && chosenColor) {
+      return card.color === chosenColor;
     }
 
-    // Regular cards: match suit or rank
-    return card.suit === topCard.suit || card.rank === topCard.rank;
+    // Regular cards: match color or rank
+    return card.color === topCard.color || card.rank === topCard.rank;
   }
 
   // Get next player index
@@ -81,8 +82,6 @@ class Crazy8sGameLogic {
   calculateScore(hand) {
     return hand.reduce((score, card) => {
       if (card.rank === '8') return score + 50; // 8s worth 50 points
-      if (['J', 'Q', 'K'].includes(card.rank)) return score + 10; // Face cards worth 10
-      if (card.rank === 'A') return score + 1; // Aces worth 1
       return score + parseInt(card.rank) || 0; // Number cards worth face value
     }, 0);
   }
@@ -103,24 +102,24 @@ class Crazy8sGameLogic {
     return {
       ...card,
       display: card.rank,
-      suitSymbol: this.suitSymbols[card.suit],
-      shortName: `${card.rank}${this.suitSymbols[card.suit]}`,
+      colorEmoji: this.colorEmojis[card.color],
+      shortName: `${card.rank} ${this.colorEmojis[card.color]}`,
       colorClass: card.color
     };
   }
 
-  // Get suit choices for when an 8 is played
-  getSuitChoices() {
-    return this.suits.map(suit => ({
-      suit: suit,
-      symbol: this.suitSymbols[suit],
-      color: (suit === 'hearts' || suit === 'diamonds') ? 'red' : 'black'
+  // Get color choices for when an 8 is played
+  getColorChoices() {
+    return this.colors.map(color => ({
+      color: color,
+      emoji: this.colorEmojis[color],
+      displayName: color.charAt(0).toUpperCase() + color.slice(1)
     }));
   }
 
-  // Validate if it's a valid suit choice
-  isValidSuit(suit) {
-    return this.suits.includes(suit);
+  // Validate if it's a valid color choice
+  isValidColor(color) {
+    return this.colors.includes(color);
   }
 }
 

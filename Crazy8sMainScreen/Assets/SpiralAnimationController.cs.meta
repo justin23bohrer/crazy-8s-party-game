@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 2562b0c63d926034ca78c9507709c1a2
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - fullScreenSpiralImage: {instanceID: 0}
+  - spiralCanvasGroup: {instanceID: 0}
+  - spiralSprite: {fileID: 21300000, guid: 01aa875e07227a342a8378ebba28a03a, type: 3}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

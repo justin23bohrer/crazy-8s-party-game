@@ -6,6 +6,9 @@ class RoomManager {
     this.rooms = new Map(); // { roomCode: room object }
     this.playerToRoom = new Map(); // { playerId: roomCode } for quick lookup
     this.gameLogic = new Crazy8sGameLogic();
+    
+    // Available player colors (max 4 players)
+    this.availableColors = ['red', 'blue', 'green', 'yellow'];
   }
 
   // Generate unique 4-letter room code
@@ -25,20 +28,23 @@ class RoomManager {
     const roomCode = this.generateRoomCode();
     const room = {
       hostId,
-      players: new Map(), // { playerId: { name, id, connected: bool, cardCount: 0 } }
+      players: new Map(), // { playerId: { name, id, connected: bool, cardCount: 0, color: string } }
+      assignedColors: new Set(), // Track which colors are taken
       gameState: {
         phase: 'lobby', // lobby, playing, game-over
         currentPlayer: 0,
         deck: [],
         discardPile: [],
         playerHands: {},
-        currentSuit: null,
-        chosenSuit: null, // When an 8 is played
+        currentColor: null, // Changed from currentSuit to currentColor
+        chosenColor: null, // Changed from chosenSuit to chosenColor - When an 8 is played
         lastPlayedCard: null,
-        turnCount: 0
+        turnCount: 0,
+        isAnimating: false, // Track if spiral animation is playing - blocks all player actions
+        animationEndTime: null // When animation will end
       },
       created: new Date(),
-      maxPlayers: 6 // Reasonable limit for Crazy 8s
+      maxPlayers: 4 // Max 4 players for color assignment (red, blue, green, yellow)
     };
     
     this.rooms.set(roomCode, room);
@@ -46,6 +52,29 @@ class RoomManager {
     
     console.log(`Crazy 8s room created: ${roomCode} by host ${hostId}`);
     return roomCode;
+  }
+
+  // Assign a random available color to a player
+  assignPlayerColor(room) {
+    const availableColors = this.availableColors.filter(color => !room.assignedColors.has(color));
+    
+    if (availableColors.length === 0) {
+      throw new Error('No colors available');
+    }
+    
+    // Pick a random color from available ones
+    const randomIndex = Math.floor(Math.random() * availableColors.length);
+    const assignedColor = availableColors[randomIndex];
+    
+    room.assignedColors.add(assignedColor);
+    return assignedColor;
+  }
+
+  // Release a player's color when they leave
+  releasePlayerColor(room, color) {
+    if (color) {
+      room.assignedColors.delete(color);
+    }
   }
 
   // Player joins room
@@ -70,18 +99,28 @@ class RoomManager {
       }
     }
 
+    // Assign a color to the player
+    let playerColor;
+    try {
+      playerColor = this.assignPlayerColor(room);
+    } catch (error) {
+      return { success: false, error: 'No available colors (room full)' };
+    }
+
     const player = {
       id: playerId,
       name: playerName,
       connected: true,
       cardCount: 0,
-      joinedAt: new Date()
+      color: playerColor,
+      joinedAt: new Date(),
+      isFirstPlayer: room.players.size === 0 // True if this is the first player
     };
 
     room.players.set(playerId, player);
     this.playerToRoom.set(playerId, roomCode);
 
-    console.log(`Player ${playerName} (${playerId}) joined Crazy 8s room ${roomCode}`);
+    console.log(`Player ${playerName} (${playerId}) joined Crazy 8s room ${roomCode} with color ${playerColor}${player.isFirstPlayer ? ' (FIRST PLAYER)' : ''}`);
     return { success: true, player, roomData: this.getRoomData(roomCode) };
   }
 
@@ -92,6 +131,11 @@ class RoomManager {
 
     if (room.gameState.phase !== 'playing') {
       return { success: false, error: 'Game not in progress' };
+    }
+
+    // Check if spiral animation is blocking actions
+    if (this.isAnimationBlocking(room)) {
+      return { success: false, error: 'Please wait for the animation to complete' };
     }
 
     const playerIndex = this.getPlayerIndex(room, playerId);
@@ -105,21 +149,84 @@ class RoomManager {
 
     switch (action.type) {
       case 'play_card':
-        return this.handlePlayCard(room, playerIndex, action.cardIndex, action.chosenSuit);
+        return this.handlePlayCard(room, playerIndex, action.cardIndex, action.chosenColor); // Changed from chosenSuit to chosenColor
       case 'draw_card':
         return this.handleDrawCard(room, playerIndex);
-      case 'choose_suit':
-        return this.handleChooseSuit(room, playerIndex, action.suit);
+      case 'choose_color': // Changed from choose_suit to choose_color
+        return this.handleChooseColor(room, playerIndex, action.color); // Changed from action.suit to action.color
       default:
         return { success: false, error: 'Unknown action type' };
     }
   }
 
-  // Start Crazy 8s game
-  startGame(roomCode, hostId) {
+  // Check if spiral animation is currently blocking player actions
+  isAnimationBlocking(room) {
+    if (!room.gameState.isAnimating) {
+      return false;
+    }
+
+    // Check if animation should have ended by now
+    if (room.gameState.animationEndTime && Date.now() > room.gameState.animationEndTime) {
+      // Animation time expired, clear the lock
+      room.gameState.isAnimating = false;
+      room.gameState.animationEndTime = null;
+      console.log('🎬 Animation lock expired and cleared');
+      return false;
+    }
+
+    // Animation is still active
+    return true;
+  }
+
+  // Start spiral animation lock (called when 8 card color is chosen)
+  startAnimationLock(roomCode, durationMs = 3300) { // 3.3 seconds for spiral animation
     const room = this.rooms.get(roomCode);
-    if (!room || room.hostId !== hostId) {
-      return { success: false, error: 'Not authorized or room not found' };
+    if (!room) return;
+
+    room.gameState.isAnimating = true;
+    room.gameState.animationEndTime = Date.now() + durationMs;
+    console.log(`🎬 Started animation lock for ${durationMs}ms in room ${roomCode}`);
+  }
+
+  // Handle first card flip animation completion (called by Unity)
+  handleFirstCardFlipComplete(roomCode) {
+    const room = this.rooms.get(roomCode);
+    if (!room) {
+      console.log(`❌ Room ${roomCode} not found for first card flip completion`);
+      return { success: false, error: 'Room not found' };
+    }
+
+    // Clear animation lock to re-enable phone interactions
+    room.gameState.isAnimating = false;
+    room.gameState.animationEndTime = null;
+    console.log(`🎬 First card flip animation completed in room ${roomCode} - phones re-enabled`);
+
+    return { success: true };
+  }
+
+  // Clear animation lock (can be called manually if needed)
+  clearAnimationLock(roomCode) {
+    const room = this.rooms.get(roomCode);
+    if (!room) return;
+
+    room.gameState.isAnimating = false;
+    room.gameState.animationEndTime = null;
+    console.log(`🎬 Cleared animation lock in room ${roomCode}`);
+  }
+
+  // Start Crazy 8s game
+  startGame(roomCode, requesterId) {
+    const room = this.rooms.get(roomCode);
+    if (!room) {
+      return { success: false, error: 'Room not found' };
+    }
+
+    // Check if requester is host OR first player
+    const requesterPlayer = room.players.get(requesterId);
+    const isAuthorized = room.hostId === requesterId || (requesterPlayer && requesterPlayer.isFirstPlayer);
+    
+    if (!isAuthorized) {
+      return { success: false, error: 'Not authorized - only host or first player can start the game' };
     }
 
     if (room.players.size < 2) {
@@ -139,10 +246,15 @@ class RoomManager {
     room.gameState.deck = remainingDeck;
     room.gameState.discardPile = [startCard];
     room.gameState.playerHands = hands;
-    room.gameState.currentSuit = startCard.suit;
-    room.gameState.chosenSuit = null;
+    room.gameState.currentColor = startCard.color; // Changed from currentSuit to currentColor
+    room.gameState.chosenColor = null; // Changed from chosenSuit to chosenColor
     room.gameState.lastPlayedCard = startCard;
     room.gameState.turnCount = 0;
+
+    // Enable animation lock for first card flip animation (3 seconds)
+    room.gameState.isAnimating = true;
+    room.gameState.animationEndTime = Date.now() + 3000; // 3 seconds for first card flip
+    console.log(`🎬 Started first card flip animation lock for 3000ms in room ${roomCode}`);
 
     // Update player card counts for UI
     let playerIndex = 0;
@@ -166,7 +278,7 @@ class RoomManager {
   }
 
   // Handle playing a card
-  handlePlayCard(room, playerIndex, cardIndex, chosenSuit = null) {
+  handlePlayCard(room, playerIndex, cardIndex, chosenColor = null) { // Changed from chosenSuit to chosenColor
     const playerHand = room.gameState.playerHands[playerIndex];
     const card = playerHand[cardIndex];
     const topCard = room.gameState.lastPlayedCard;
@@ -176,8 +288,8 @@ class RoomManager {
     }
 
     // Check if card can be played
-    const currentSuit = room.gameState.chosenSuit || room.gameState.currentSuit;
-    if (!this.gameLogic.canPlayCard(card, topCard, currentSuit)) {
+    const currentColor = room.gameState.chosenColor || room.gameState.currentColor; // Changed from currentSuit to currentColor
+    if (!this.gameLogic.canPlayCard(card, topCard, currentColor)) {
       return { success: false, error: 'Cannot play this card' };
     }
 
@@ -193,22 +305,34 @@ class RoomManager {
 
     // Handle 8s (wild cards)
     if (card.rank === '8') {
-      if (chosenSuit && this.gameLogic.isValidSuit(chosenSuit)) {
-        room.gameState.chosenSuit = chosenSuit;
-        room.gameState.currentSuit = chosenSuit;
-      } else {
-        // Need to choose suit
+      // Check if this 8 wins the game
+      const isWinningPlay = this.gameLogic.hasWon(playerHand);
+      
+      if (isWinningPlay) {
+        // Skip color choice for winning 8 - just end the game
+        room.gameState.phase = 'game-over';
         return { 
           success: true, 
-          needSuitChoice: true,
-          gameOver: this.gameLogic.hasWon(playerHand),
-          winner: this.gameLogic.hasWon(playerHand) ? players[playerIndex].name : null
+          gameOver: true, 
+          winner: players[playerIndex].name,
+          winningEight: true // Flag to indicate this was a winning 8
+        };
+      } else if (chosenColor && this.gameLogic.isValidColor(chosenColor)) { // Changed from chosenSuit to chosenColor and isValidSuit to isValidColor
+        room.gameState.chosenColor = chosenColor; // Changed from chosenSuit to chosenColor
+        room.gameState.currentColor = chosenColor; // Changed from currentSuit to currentColor
+      } else {
+        // Need to choose color for non-winning 8
+        return { 
+          success: true, 
+          needColorChoice: true, // Changed from needSuitChoice to needColorChoice
+          gameOver: false,
+          winner: null
         };
       }
     } else {
-      // Regular card - update current suit
-      room.gameState.currentSuit = card.suit;
-      room.gameState.chosenSuit = null;
+      // Regular card - update current color
+      room.gameState.currentColor = card.color; // Changed from suit to color and currentSuit to currentColor
+      room.gameState.chosenColor = null; // Changed from chosenSuit to chosenColor
     }
 
     // Check for win
@@ -258,14 +382,17 @@ class RoomManager {
     return { success: true, drawnCard };
   }
 
-  // Handle choosing suit after playing an 8
-  handleChooseSuit(room, playerIndex, suit) {
-    if (!this.gameLogic.isValidSuit(suit)) {
-      return { success: false, error: 'Invalid suit choice' };
+  // Handle choosing color after playing an 8
+  handleChooseColor(room, playerIndex, color) { // Changed from handleChooseSuit to handleChooseColor and suit to color
+    if (!this.gameLogic.isValidColor(color)) { // Changed from isValidSuit to isValidColor
+      return { success: false, error: 'Invalid color choice' }; // Changed error message
     }
 
-    room.gameState.chosenSuit = suit;
-    room.gameState.currentSuit = suit;
+    room.gameState.chosenColor = color; // Changed from chosenSuit to chosenColor
+    room.gameState.currentColor = color; // Changed from currentSuit to currentColor
+
+    // NOTE: Animation lock is now handled in server.js before sending updates
+    // This ensures the lock is set before any game state updates reach players
 
     // Move to next player
     room.gameState.currentPlayer = this.gameLogic.getNextPlayer(
@@ -294,8 +421,8 @@ class RoomManager {
       gameState: {
         phase: room.gameState.phase,
         currentPlayer: room.gameState.currentPlayer,
-        currentSuit: room.gameState.currentSuit,
-        chosenSuit: room.gameState.chosenSuit,
+        currentColor: room.gameState.currentColor, // Changed from currentSuit to currentColor
+        chosenColor: room.gameState.chosenColor, // Changed from chosenSuit to chosenColor
         topCard: room.gameState.lastPlayedCard,
         deckCount: room.gameState.deck?.length || 0
       }
@@ -313,7 +440,7 @@ class RoomManager {
     return {
       playerHand: room.gameState.playerHands[playerIndex] || [],
       topCard: room.gameState.lastPlayedCard,
-      currentSuit: room.gameState.chosenSuit || room.gameState.currentSuit,
+      currentColor: room.gameState.chosenColor || room.gameState.currentColor, // Changed from currentSuit to currentColor
       currentPlayer: room.gameState.currentPlayer,
       players: Array.from(room.players.values()).map(p => ({ 
         name: p.name, 
@@ -321,7 +448,10 @@ class RoomManager {
       })),
       canDraw: room.gameState.deck?.length > 0,
       isYourTurn: playerIndex === room.gameState.currentPlayer,
-      needSuitChoice: false // Will be set true when an 8 is played
+      needSuitChoice: false, // Will be set true when an 8 is played
+      isAnimating: room.gameState.isAnimating || false, // Include animation state for UI blocking
+      phase: room.gameState.phase || 'playing', // Include game phase so phone clients know game state
+      isRestarted: room.gameState.turnCount === 0 // Indicate if this is a fresh game
     };
   }
 
@@ -345,14 +475,19 @@ class RoomManager {
       return { roomClosed: true, roomCode };
     }
 
-    // Mark player as disconnected
+    // Mark player as disconnected and release their color
     const player = room.players.get(playerId);
     if (player) {
       const playerName = player.name;
+      const playerColor = player.color;
+      
+      // Release the player's color
+      this.releasePlayerColor(room, playerColor);
+      
       room.players.delete(playerId);
       this.playerToRoom.delete(playerId);
-      console.log(`Player ${playerName} disconnected from room ${roomCode}`);
-      return { roomCode, playerName };
+      console.log(`Player ${playerName} (${playerColor}) disconnected from room ${roomCode}`);
+      return { roomCode, playerName, playerColor };
     }
 
     return null;
@@ -395,13 +530,122 @@ class RoomManager {
     return {
       currentPlayer: Array.from(room.players.values())[room.gameState.currentPlayer]?.name,
       topCard: room.gameState.lastPlayedCard,
-      currentSuit: room.gameState.chosenSuit || room.gameState.currentSuit,
+      currentColor: room.gameState.chosenColor || room.gameState.currentColor, // Changed from currentSuit to currentColor
       deckCount: room.gameState.deck.length,
       players: Array.from(room.players.values()).map(p => ({
         name: p.name,
-        cardCount: p.cardCount
-      }))
+        cardCount: p.cardCount,
+        color: p.color
+      })),
+      isAnimating: room.gameState.isAnimating || false // Include animation state
     };
+  }
+
+  // Restart game with same players - Step 4 implementation
+  restartGame(roomCode, requesterId) {
+    const room = this.rooms.get(roomCode);
+    if (!room) {
+      return { success: false, error: 'Room not found' };
+    }
+
+    // Check if requester is host OR first player
+    const requesterPlayer = room.players.get(requesterId);
+    const isAuthorized = room.hostId === requesterId || (requesterPlayer && requesterPlayer.isFirstPlayer);
+    
+    if (!isAuthorized) {
+      return { success: false, error: 'Not authorized - only host or first player can restart the game' };
+    }
+
+    if (room.players.size < 2) {
+      return { success: false, error: 'Need at least 2 players to restart' };
+    }
+
+    console.log(`🔄 Restarting game in room ${roomCode} with same players`);
+
+    // Reset winner animation and game state
+    room.gameState.isAnimating = false;
+    room.gameState.animationEndTime = null;
+
+    // Generate new shuffled deck using existing card creation logic
+    const deck = this.gameLogic.createDeck();
+    const playerCount = room.players.size;
+    
+    // Deal 7 cards to each existing player
+    const { hands, remainingDeck } = this.gameLogic.dealInitialHands(deck, playerCount);
+    
+    // Set a random starting card on discard pile (not an 8)
+    const startCard = this.gameLogic.findValidStartCard(remainingDeck);
+    
+    // Reset game state with fresh game
+    room.gameState.phase = 'playing';
+    room.gameState.currentPlayer = 0; // Reset current player to 0
+    room.gameState.deck = remainingDeck;
+    room.gameState.discardPile = [startCard];
+    room.gameState.playerHands = hands;
+    room.gameState.currentColor = startCard.color;
+    room.gameState.chosenColor = null;
+    room.gameState.lastPlayedCard = startCard;
+    room.gameState.turnCount = 0;
+
+    // Update player card counts for UI
+    let playerIndex = 0;
+    for (const [playerId, player] of room.players) {
+      player.cardCount = hands[playerIndex].length;
+      playerIndex++;
+    }
+
+    console.log(`✅ Game restarted successfully in room ${roomCode}`);
+    return { success: true, gameState: room.gameState };
+  }
+
+  // Start new game with new players - Step 5 implementation  
+  startNewGame(roomCode, requesterId) {
+    const room = this.rooms.get(roomCode);
+    if (!room) {
+      return { success: false, error: 'Room not found' };
+    }
+
+    console.log(`👥 Starting new game with new players for room ${roomCode}`);
+
+    // Generate new room code
+    const newRoomCode = this.generateRoomCode();
+    
+    // Create new room for the host
+    const newRoom = {
+      hostId: requesterId,
+      players: new Map(),
+      assignedColors: new Set(),
+      gameState: {
+        phase: 'lobby',
+        currentPlayer: 0,
+        deck: [],
+        discardPile: [],
+        playerHands: {},
+        currentColor: null,
+        chosenColor: null,
+        lastPlayedCard: null,
+        turnCount: 0,
+        isAnimating: false,
+        animationEndTime: null
+      },
+      created: new Date(),
+      maxPlayers: 4
+    };
+
+    // Remove old room
+    this.rooms.delete(roomCode);
+    
+    // Clear all player mappings for the old room
+    for (const [playerId] of room.players) {
+      this.playerToRoom.delete(playerId);
+    }
+
+    // Set up new room
+    this.rooms.set(newRoomCode, newRoom);
+    this.playerToRoom.set(requesterId, newRoomCode);
+
+    console.log(`✅ New game created with room code: ${newRoomCode}`);
+    return { success: true, newRoomCode: newRoomCode };
   }
 }
 

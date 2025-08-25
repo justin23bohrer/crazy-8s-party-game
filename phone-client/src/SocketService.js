@@ -20,6 +20,11 @@ class SocketService {
       this.connected = true;
       this.emit('connected', this.socket.id);
     });
+    
+    // Debug: Log all incoming events
+    this.socket.onAny((eventName, ...args) => {
+      console.log(`📡 PHONE: Received event '${eventName}':`, args);
+    });
 
     this.socket.on('disconnect', (reason) => {
       console.log('Disconnected from server:', reason);
@@ -72,6 +77,11 @@ class SocketService {
     this.socket.on('game-ended', (data) => {
       console.log('Game ended:', data);
       this.emit('game-ended', data);
+    });
+
+    this.socket.on('game-over', (data) => {
+      console.log('🏆 Game over received in SocketService:', data);
+      this.emit('game-over', data);
     });
 
     this.socket.on('player-action', (data) => {
