@@ -172,6 +172,7 @@ MonoBehaviour:
   faceUpElements: {fileID: 6167242672304439621}
   logoElements: {fileID: 194644726925675201}
   logoImage: {fileID: 7707384451118947763}
+  topCardOutline: {fileID: 1082622702015577639}
 --- !u!1 &762526068562630051
 GameObject:
   m_ObjectHideFlags: 0

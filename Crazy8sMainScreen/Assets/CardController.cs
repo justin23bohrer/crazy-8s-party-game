@@ -709,7 +709,21 @@ public class CardController : MonoBehaviour
         float timer = 0f;
         Vector3 originalScale = transform.localScale;
         
-        // First half - shrink horizontally (hide face down)
+        Debug.Log("🎬 Starting flip animation - logo should scale with card");
+        
+        // ENSURE LOGO IS VISIBLE AND SCALING during first half
+        if (logoElements != null)
+        {
+            logoElements.SetActive(true);
+            Debug.Log("🃏 Logo elements confirmed active for scaling");
+        }
+        if (logoImage != null)
+        {
+            logoImage.gameObject.SetActive(true);
+            Debug.Log("🃏 Logo image confirmed active for scaling");
+        }
+        
+        // First half - shrink horizontally (logo scales WITH the card)
         while (timer < halfDuration)
         {
             timer += Time.deltaTime;
@@ -719,69 +733,45 @@ public class CardController : MonoBehaviour
             scale.x = Mathf.Lerp(1f, 0f, progress);
             transform.localScale = scale;
             
+            // Logo is scaling with the card automatically since it's a child
             yield return null;
         }
         
-        // Switch from face down to face up at middle of animation
+        // INSTANT SWITCH at the exact moment when scale.x = 0 (card is flat)
+        Debug.Log("🃏 Card is flat - switching elements NOW");
+        
+        // Hide logo elements INSTANTLY (no searching since you assigned them)
         if (logoElements != null)
         {
             logoElements.SetActive(false);
-            Debug.Log("🃏 FLIP: Hid logoElements");
+            Debug.Log("🃏 INSTANTLY hid logoElements");
         }
-        else
+        if (logoImage != null)
         {
-            // Try to find and hide the logo image directly
-            if (logoImage != null)
-            {
-                logoImage.gameObject.SetActive(false);
-                Debug.Log("🃏 FLIP: Hid logoImage directly");
-            }
-            else
-            {
-                // Try to find logo by name and hide it
-                Transform logoTransform = transform.Find("Logo") ?? transform.Find("LogoImage") ?? transform.Find("GameLogo");
-                if (logoTransform != null)
-                {
-                    logoTransform.gameObject.SetActive(false);
-                    Debug.Log("🃏 FLIP: Found and hid logo by name");
-                }
-                else
-                {
-                    Debug.Log("🃏 FLIP: logoElements is null - can't hide logo, searching for Image components with logo");
-                    
-                    // Last resort: find all Image components and look for one that might be the logo
-                    Image[] images = GetComponentsInChildren<Image>();
-                    foreach (Image img in images)
-                    {
-                        if (img != cardBackground && img != innerCard && img.sprite != null)
-                        {
-                            // This might be the logo image
-                            img.gameObject.SetActive(false);
-                            Debug.Log($"🃏 FLIP: Hid potential logo image: {img.name}");
-                        }
-                    }
-                }
-            }
+            logoImage.gameObject.SetActive(false);
+            Debug.Log("🃏 INSTANTLY hid logoImage");
         }
         
+        // Show face-up elements INSTANTLY (no searching since you assigned them)
         if (faceUpElements != null)
         {
             faceUpElements.SetActive(true);
-            Debug.Log("🃏 FLIP: Showed faceUpElements");
+            Debug.Log("🃏 INSTANTLY showed faceUpElements");
         }
         else
         {
-            // If faceUpElements is null, show all text components manually
-            Debug.Log("🃏 FLIP: faceUpElements is null - showing text manually");
+            // Only fallback if faceUpElements is null
+            Debug.Log("🃏 faceUpElements is null - activating text components");
             if (cardValueTop != null) cardValueTop.gameObject.SetActive(true);
             if (cardValueBottom != null) cardValueBottom.gameObject.SetActive(true);
             if (cardValueCenter != null) cardValueCenter.gameObject.SetActive(true);
-        };
+        }
         
-        // Set the actual card using your existing method
+        // Set the actual card INSTANTLY
         SetCard(color, value);
+        Debug.Log("🃏 Card data set");
         
-        // Second half - expand horizontally (show face up)
+        // Second half - expand horizontally (face-up elements scale WITH the card)
         timer = 0f;
         while (timer < halfDuration)
         {
@@ -792,6 +782,7 @@ public class CardController : MonoBehaviour
             scale.x = Mathf.Lerp(0f, 1f, progress);
             transform.localScale = scale;
             
+            // Face-up elements are scaling with the card automatically since they're children
             yield return null;
         }
         
@@ -800,7 +791,7 @@ public class CardController : MonoBehaviour
         isFaceDown = false;
         isFlipping = false;
         
-        Debug.Log("🎬 Flip animation complete!");
+        Debug.Log("🎬 Flip animation complete - everything should be synchronized!");
     }
     
     /// <summary>

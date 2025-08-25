@@ -73,8 +73,16 @@ function App() {
     console.log('Left game');
   };
 
+  // Get background class based on player color
+  const getBackgroundClass = () => {
+    if (isConnected && gameData?.playerColor) {
+      return `app app-${gameData.playerColor}-background`;
+    }
+    return 'app';
+  };
+
   return (
-    <div className="app">
+    <div className={getBackgroundClass()}>
       {/* Error message */}
       {error && (
         <div className="error-message">

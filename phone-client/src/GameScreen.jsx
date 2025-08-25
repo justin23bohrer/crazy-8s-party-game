@@ -484,8 +484,8 @@ function GameScreen({ gameData, onLeave, socketService }) {
       <div className="status-message">
         <h2>🎮 Connected!</h2>
         <p>Room: {gameData.roomCode}</p>
-        <p>Player: <span style={{ color: getPlayerColorHex(gameData?.playerColor) }}>
-          {gameData.playerName} ({getColorEmoji(gameData?.playerColor)})
+        <p>Player: <span className="player-name-white">
+          {gameData.playerName}
         </span></p>
         <div className="waiting-animation">
           <div className="dots">
@@ -535,8 +535,8 @@ function GameScreen({ gameData, onLeave, socketService }) {
     <div className={`game-content playing ${isAnimating ? 'animation-locked' : ''}`}>
       <div className="game-header">
         <div className="player-info">
-          <span className="player-name" style={{ color: getPlayerColorHex(gameData?.playerColor) }}>
-            {gameData?.playerName} ({getColorEmoji(gameData?.playerColor)})
+          <span className="player-name-white">
+            {gameData?.playerName}
           </span>
         </div>
         <div className="game-info">

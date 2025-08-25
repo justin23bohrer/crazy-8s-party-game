@@ -28,6 +28,42 @@ html, body {
   align-items: center;
   justify-content: center;
   padding: 20px;
+  transition: background 0.8s ease-in-out;
+}
+
+/* Player color backgrounds - activated when in game */
+.app-red-background {
+  background: linear-gradient(135deg, #dc2626 0%, #991b1b 50%, #7f1d1d 100%);
+  box-shadow: inset 0 0 100px rgba(220, 38, 38, 0.1);
+  animation: colorPulse 3s ease-in-out infinite alternate;
+}
+
+.app-blue-background {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 50%, #1e3a8a 100%);
+  box-shadow: inset 0 0 100px rgba(37, 99, 235, 0.1);
+  animation: colorPulse 3s ease-in-out infinite alternate;
+}
+
+.app-green-background {
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 50%, #166534 100%);
+  box-shadow: inset 0 0 100px rgba(22, 163, 74, 0.1);
+  animation: colorPulse 3s ease-in-out infinite alternate;
+}
+
+.app-yellow-background {
+  background: linear-gradient(135deg, #ca8a04 0%, #a16207 50%, #854d0e 100%);
+  box-shadow: inset 0 0 100px rgba(202, 138, 4, 0.1);
+  animation: colorPulse 3s ease-in-out infinite alternate;
+}
+
+/* Subtle pulse animation for player backgrounds */
+@keyframes colorPulse {
+  0% {
+    filter: brightness(1);
+  }
+  100% {
+    filter: brightness(1.05);
+  }
 }
 
 /* Join Screen Styles */
@@ -183,6 +219,14 @@ html, body {
   font-size: 1.1rem;
   font-weight: bold;
   margin-bottom: 4px;
+}
+
+.player-name-white {
+  font-size: 1.1rem;
+  font-weight: bold;
+  margin-bottom: 4px;
+  color: white !important;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 .game-info {
