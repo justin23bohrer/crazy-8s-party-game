@@ -171,3 +171,6 @@ $RECYCLE.BIN/
 *.msm
 *.msp
 *.lnk
+
+# Documentation (keep local only)
+ONBOARDING.md
