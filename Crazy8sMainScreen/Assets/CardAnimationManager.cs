@@ -12,6 +12,9 @@ public class CardAnimationManager : MonoBehaviour
     public Image topCardImage;
     public MonoBehaviour spiralAnimationController;
     
+    [Header("Stacking System Integration")]
+    public DeckManager deckManager;  // NEW: Reference to DeckManager for compatibility
+    
     [Header("Animation Settings")]
     public float cardFlipDuration = 0.8f;
     public float delayBeforeFlip = 2.0f;
@@ -127,15 +130,50 @@ public class CardAnimationManager : MonoBehaviour
     
     public void UpdateTopCard(string cardValue, bool isWinningEight = false)
     {
-        Debug.Log($"🎬 UpdateTopCard called with: '{cardValue}' (flipInProgress: {isCardFlipAnimationInProgress}, winningEight: {isWinningEight})");
+        Debug.Log($"🎬 UpdateTopCard redirecting to stacking system: '{cardValue}' (winningEight: {isWinningEight})");
         
         // Skip updating during flip animation
         if (isCardFlipAnimationInProgress)
         {
-            Debug.Log("🎬 Skipping UpdateTopCard - flip animation in progress");
+            Debug.Log("🎬 Skipping - flip animation in progress");
             return;
         }
 
+        // NEW: Redirect to DeckManager for stacking system
+        if (deckManager != null)
+        {
+            var cardData = ParseCardValue(cardValue);
+            if (cardData != null)
+            {
+                Debug.Log($"🎬 Redirecting to DeckManager.PlayCardFromDeck: {cardData.value} of {cardData.color}");
+                deckManager.PlayCardFromDeck(cardData.color, cardData.value);
+                return;
+            }
+        }
+        else
+        {
+            // Find DeckManager if not assigned
+            deckManager = FindFirstObjectByType<DeckManager>();
+            if (deckManager != null)
+            {
+                var cardData = ParseCardValue(cardValue);
+                if (cardData != null)
+                {
+                    Debug.Log($"🎬 Found DeckManager, redirecting: {cardData.value} of {cardData.color}");
+                    deckManager.PlayCardFromDeck(cardData.color, cardData.value);
+                    return;
+                }
+            }
+        }
+        
+        // FALLBACK: Use legacy TopCard system if DeckManager not found
+        Debug.LogWarning("🎬 DeckManager not found, using legacy TopCard system");
+        UpdateTopCardLegacy(cardValue, isWinningEight);
+    }
+    
+    // NEW: Separate legacy method for backward compatibility
+    private void UpdateTopCardLegacy(string cardValue, bool isWinningEight = false)
+    {
         if (topCardImage == null || string.IsNullOrEmpty(cardValue)) 
         {
             Debug.LogError($"🎬 Cannot update card - topCardImage: {topCardImage != null}, cardValue: '{cardValue}'");

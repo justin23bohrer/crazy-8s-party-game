@@ -97,7 +97,7 @@ public class WinnerAnimationManager : MonoBehaviour
         if (playerManager == null) yield break;
         
         List<GameObject> playerDisplays = playerManager.GetAllPlayerDisplays();
-        GameObject topCard = GameObject.Find("TopCard");
+        GameObject playArea = GameObject.Find("PlayArea");
         
         List<CanvasGroup> canvasGroups = new List<CanvasGroup>();
         
@@ -119,15 +119,15 @@ public class WinnerAnimationManager : MonoBehaviour
             }
         }
         
-        // Add top card canvas group
-        if (topCard != null)
+        // Add play area (card stack) canvas group
+        if (playArea != null)
         {
-            CanvasGroup topCardCG = topCard.GetComponent<CanvasGroup>();
-            if (topCardCG == null)
+            CanvasGroup playAreaCG = playArea.GetComponent<CanvasGroup>();
+            if (playAreaCG == null)
             {
-                topCardCG = topCard.AddComponent<CanvasGroup>();
+                playAreaCG = playArea.AddComponent<CanvasGroup>();
             }
-            canvasGroups.Add(topCardCG);
+            canvasGroups.Add(playAreaCG);
         }
         
         // Fade out all non-winner elements
@@ -326,15 +326,15 @@ public class WinnerAnimationManager : MonoBehaviour
             Debug.Log("✅ Reset instructionText");
         }
         
-        // Reset top card visibility (it gets faded out during winner animation)
-        GameObject topCard = GameObject.Find("TopCard");
-        if (topCard != null)
+        // Reset play area (card stack) visibility - it gets faded out during winner animation
+        GameObject playArea = GameObject.Find("PlayArea");
+        if (playArea != null)
         {
-            CanvasGroup topCardCG = topCard.GetComponent<CanvasGroup>();
-            if (topCardCG != null)
+            CanvasGroup playAreaCG = playArea.GetComponent<CanvasGroup>();
+            if (playAreaCG != null)
             {
-                topCardCG.alpha = 1f;
-                Debug.Log("✅ Reset TopCard visibility");
+                playAreaCG.alpha = 1f;
+                Debug.Log("✅ Reset PlayArea (card stack) visibility");
             }
         }
         

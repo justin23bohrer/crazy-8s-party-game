@@ -18,6 +18,7 @@ public class GameStateManager : MonoBehaviour
     // Manager references
     private UIManager uiManager;
     private CardAnimationManager cardAnimationManager;
+    private DeckManager deckManager;  // NEW: Add DeckManager reference
     private PlayerManager playerManager;
     
     // Events
@@ -31,6 +32,7 @@ public class GameStateManager : MonoBehaviour
         // Auto-find required managers
         uiManager = FindFirstObjectByType<UIManager>();
         cardAnimationManager = FindFirstObjectByType<CardAnimationManager>();
+        deckManager = FindFirstObjectByType<DeckManager>();  // NEW: Find DeckManager
         playerManager = FindFirstObjectByType<PlayerManager>();
         
         ResetGameState();
@@ -88,9 +90,14 @@ public class GameStateManager : MonoBehaviour
             UpdateTopCard(newTopCard);
             
             // If this is the game start, trigger the card flip animation
-            if (isGameStarting && cardAnimationManager != null)
+            if (isGameStarting && deckManager != null)
             {
-                Debug.Log($"🎯 Game starting detected! Triggering card flip animation for: {newTopCard}");
+                Debug.Log($"🎯 Game starting detected! Triggering stacking system for: {newTopCard}");
+                deckManager.StartGameFlip();
+            }
+            else if (isGameStarting && cardAnimationManager != null)
+            {
+                Debug.Log($"🎯 Game starting detected! Using fallback CardAnimationManager for: {newTopCard}");
                 cardAnimationManager.StartGameWithCardFlip();
             }
         }
@@ -161,14 +168,31 @@ public class GameStateManager : MonoBehaviour
             
             Debug.Log($"🃏 Updating top card to: {cardValue}");
             
-            if (cardAnimationManager != null)
+            // NEW: Use DeckManager instead of CardAnimationManager for stacking system
+            if (deckManager != null)
             {
-                Debug.Log($"🃏 Calling CardAnimationManager.UpdateTopCard with: {cardValue}");
+                Debug.Log($"🃏 Calling DeckManager.PlayCardFromDeck with: {cardValue}");
+                
+                // Parse the card value to get color and value for stacking
+                var cardData = ParseCardValue(cardValue);
+                if (cardData != null)
+                {
+                    deckManager.PlayCardFromDeck(cardData.Item1, cardData.Item2);
+                }
+                else
+                {
+                    Debug.LogError($"🃏 Failed to parse card value: {cardValue}");
+                }
+            }
+            else if (cardAnimationManager != null)
+            {
+                // FALLBACK: Keep CardAnimationManager as backup
+                Debug.Log($"🃏 DeckManager not found, using CardAnimationManager fallback");
                 cardAnimationManager.UpdateTopCard(cardValue);
             }
             else
             {
-                Debug.LogError("🃏 CardAnimationManager is null!");
+                Debug.LogError("🃏 Both DeckManager and CardAnimationManager are null!");
             }
             
             OnTopCardChanged?.Invoke(cardValue);
@@ -511,6 +535,42 @@ public class GameStateManager : MonoBehaviour
         else
         {
             Debug.LogError("❌ GameManager not found - cannot trigger winner sequence");
+        }
+    }
+    
+    // NEW: Helper method to parse card values for DeckManager stacking system
+    private System.Tuple<string, int> ParseCardValue(string cardString)
+    {
+        if (string.IsNullOrEmpty(cardString)) return null;
+        
+        try
+        {
+            // Handle different card formats: "7 of red", "A of blue", etc.
+            string[] parts = cardString.Split(new string[] { " of " }, System.StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length != 2) return null;
+            
+            string valueStr = parts[0].Trim();
+            string color = parts[1].Trim().ToLower();
+            
+            int value;
+            switch (valueStr.ToUpper())
+            {
+                case "A": value = 1; break;
+                case "J": value = 11; break;
+                case "Q": value = 12; break;
+                case "K": value = 13; break;
+                default:
+                    if (!int.TryParse(valueStr, out value)) return null;
+                    break;
+            }
+            
+            Debug.Log($"🃏 Parsed card: '{cardString}' -> {value} of {color}");
+            return new System.Tuple<string, int>(color, value);
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"🃏 Error parsing card value '{cardString}': {e.Message}");
+            return null;
         }
     }
 }
