@@ -135,54 +135,33 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Host starts game
+  // Host starts Over Under game
   socket.on('start-game', (data, callback) => {
     try {
       // Handle both string roomCode and object with roomCode
       const roomCode = typeof data === 'string' ? data : data.roomCode;
-      console.log(`Starting game for room: ${roomCode}`);
+      console.log(`Starting Over Under game for room: ${roomCode}`);
       
-      const result = roomManager.startGame(roomCode, socket.id);
+      const result = roomManager.startOverUnderGame(roomCode, socket.id);
       
       if (result.success) {
-        // Get the room to access player information
-        const room = roomManager.rooms.get(roomCode);
-        
-        // Send individual game state to each player
-        for (const [playerId] of room.players) {
-          const playerSocket = io.sockets.sockets.get(playerId);
-          if (playerSocket) {
-            const playerGameState = roomManager.getGameStateForPlayer(roomCode, playerId);
-            playerSocket.emit('game-started', {
-              gameState: playerGameState
-            });
-          }
-        }
-        
-        // Send overall game state to main screen (host)
-        const mainScreenGameState = {
-          currentPlayer: Array.from(room.players.values())[result.gameState.currentPlayer]?.name,
-          topCard: result.gameState.lastPlayedCard,
-          currentColor: result.gameState.currentColor,
-          deckCount: result.gameState.deck.length,
-          players: Array.from(room.players.values()).map(p => ({
-            name: p.name,
-            color: p.color,
-            cardCount: p.cardCount
-          }))
-        };
-        
-        // Emit to all clients in room (including Unity main screen)
+        // Send game started confirmation to all players
         io.to(roomCode).emit('game-started', {
-          gameState: mainScreenGameState
+          message: 'Over Under game started!',
+          totalRounds: result.totalRounds
         });
+
+        // Start the first round immediately
+        setTimeout(() => {
+          startNextOverUnderRound(roomCode);
+        }, 2000); // 2 second delay to let players see the start message
         
         // Send callback response if callback provided
         if (callback && typeof callback === 'function') {
           callback({ success: true });
         }
       } else {
-        console.error(`Failed to start game: ${result.error}`);
+        console.error(`Failed to start Over Under game: ${result.error}`);
         if (callback && typeof callback === 'function') {
           callback({ success: false, error: result.error });
         }
@@ -190,7 +169,7 @@ io.on('connection', (socket) => {
         io.to(roomCode).emit('game-error', { error: result.error });
       }
     } catch (error) {
-      console.error('Error starting game:', error);
+      console.error('Error starting Over Under game:', error);
       if (callback && typeof callback === 'function') {
         callback({ success: false, error: error.message });
       }
@@ -249,254 +228,67 @@ io.on('connection', (socket) => {
     callback(roomData);
   });
 
-  // Crazy 8s specific events
-  socket.on('play-card', (data) => {
+  // Over Under specific events
+  socket.on('submit-answer', (data, callback) => {
     try {
-      const { roomCode, card, chosenColor } = data; // Extract chosenColor from data
-      const room = roomManager.rooms.get(roomCode);
-      if (!room) return;
-
-      // CHECK: Block card playing during animation, BUT ALLOW 8-card color choices
-      if (roomManager.isAnimationBlocking(room)) {
-        // If this is an 8-card with chosenColor, allow it (completing previous 8-card play)
-        if (card.rank === '8' && chosenColor) {
-          console.log('✅ Allowing 8-card color choice during animation');
-        } else {
-          console.log('🚫 Blocking card play - animation in progress');
-          return; // Silently reject non-8-card plays during animation
-        }
-      }
-
-      const playerIndex = roomManager.getPlayerIndex(room, socket.id);
-      if (playerIndex === -1) return;
-
-      const cardIndex = room.gameState.playerHands[playerIndex].findIndex(c => 
-        c.color === card.color && c.rank === card.rank
-      );
-
-      const result = roomManager.handlePlayCard(room, playerIndex, cardIndex, chosenColor); // Pass chosenColor to handlePlayCard
+      const { roomCode, answer } = data;
+      console.log(`Player ${socket.id} submitted answer: ${answer} for room ${roomCode}`);
+      
+      const result = roomManager.handleSubmitAnswer(roomCode, socket.id, answer);
       
       if (result.success) {
-        // Handle winning 8 cards differently - no animation needed
-        if (result.winningEight) {
-          console.log('🏆 WINNING 8 DETECTED - Skipping spiral animation');
-          
-          // Send updated game state to each player individually FIRST (so they see card removed)
-          for (const [playerId] of room.players) {
-            const playerSocket = io.sockets.sockets.get(playerId);
-            if (playerSocket) {
-              const playerGameState = roomManager.getGameStateForPlayer(roomCode, playerId);
-              playerSocket.emit('game-state-updated', {
-                gameState: {
-                  ...playerGameState,
-                  isAnimating: true, // Lock UI during winner animation
-                  phase: 'winner-animation' // Let phones know game is over
-                }
-              });
-            }
-          }
-          
-          // Notify all players about the card played (without animation)
-          io.to(roomCode).emit('card-played', {
-            playerName: room.players.get(socket.id).name,
-            card: card,
-            winningEight: true, // Flag to indicate no spiral animation needed
-            gameState: roomManager.getMainScreenGameState(room)
-          });
-
-          // Start winner animation sequence immediately
-          const winner = room.players.get(socket.id).name;
-          console.log('🏆 WINNER DETECTED (winning 8) - Starting winner animation sequence');
-          
-          // Set animation lock for winner animation (8 seconds)
-          roomManager.startAnimationLock(roomCode, 8000);
-          
-          // Set game phase to winner-animation
-          room.gameState.phase = 'winner-animation';
-          
-          // Send winner event ONLY TO UNITY (main screen)
-          const hostSocket = io.sockets.sockets.get(room.hostId);
-          if (hostSocket) {
-            hostSocket.emit('winner-detected', {
-              winner: winner,
-              winningEight: true, // Flag for Unity to know this was a winning 8
-              players: Array.from(room.players.values()).map(p => ({
-                name: p.name,
-                cardCount: p.cardCount,
-                color: p.color
-              }))
-            });
-          }
-
-          return; // Skip normal processing for winning 8
-        }
-        
-        // CRITICAL: If an 8 was played (non-winning), set animation lock IMMEDIATELY
-        if (card.rank === '8') {
-          console.log('🎬 8 card played - setting animation lock IMMEDIATELY');
-          roomManager.startAnimationLock(roomCode, 3300); // 3.3 seconds for spiral animation
-          
-          // Send animation lock state to all players IMMEDIATELY
-          for (const [playerId] of room.players) {
-            const playerSocket = io.sockets.sockets.get(playerId);
-            if (playerSocket) {
-              const playerGameState = roomManager.getGameStateForPlayer(roomCode, playerId);
-              playerSocket.emit('game-state-updated', {
-                gameState: {
-                  ...playerGameState,
-                  isAnimating: true // Explicitly set this to ensure it's received
-                }
-              });
-            }
-          }
-        }
-
-        // If an 8 was played with a chosen color, emit color-chosen event
-        if (card.rank === '8' && chosenColor) {
-          io.to(roomCode).emit('color-chosen', {
-            playerName: room.players.get(socket.id).name,
-            color: chosenColor,
-            card: card,
-            gameState: roomManager.getMainScreenGameState(room)
-          });
-        }
-        
-        // Notify all players about the card played
-        io.to(roomCode).emit('card-played', {
-          playerName: room.players.get(socket.id).name,
-          card: card,
-          gameState: roomManager.getMainScreenGameState(room)
+        // Notify all players that answerer has submitted their guess
+        io.to(roomCode).emit('voting-phase', {
+          question: result.question,
+          playerAnswer: result.answer,
+          answerer: result.answererName,
+          votingTimeLeft: 30
         });
-
-        // Send updated game state to each player individually
-        for (const [playerId] of room.players) {
-          const playerSocket = io.sockets.sockets.get(playerId);
-          if (playerSocket) {
-            const playerGameState = roomManager.getGameStateForPlayer(roomCode, playerId);
-            playerSocket.emit('game-state-updated', {
-              gameState: playerGameState
-            });
-          }
-        }
-
-        // Check for win condition
-        if (room.gameState.playerHands[playerIndex].length === 0) {
-          const winner = room.players.get(socket.id).name;
-          
-          console.log('🏆 WINNER DETECTED - Starting winner animation sequence');
-          
-          // 1. Set animation lock for winner animation (8 seconds)
-          roomManager.startAnimationLock(roomCode, 8000); // 8 second winner animation
-          
-          // 2. Set game phase to winner-animation (NOT game-over yet)
-          room.gameState.phase = 'winner-animation';
-          
-          // 3. Send winner event ONLY TO UNITY (main screen)
-          const hostSocket = io.sockets.sockets.get(room.hostId);
-          if (hostSocket) {
-            hostSocket.emit('winner-detected', {
-              winner: winner,
-              players: Array.from(room.players.values()).map(p => ({
-                name: p.name,
-                cardCount: p.cardCount,
-                color: p.color
-              }))
-            });
-          }
-          
-          // 4. Send updated game state to phones (with animation lock)
-          for (const [playerId] of room.players) {
-            const playerSocket = io.sockets.sockets.get(playerId);
-            if (playerSocket) {
-              const playerGameState = roomManager.getGameStateForPlayer(roomCode, playerId);
-              playerSocket.emit('game-state-updated', {
-                gameState: {
-                  ...playerGameState,
-                  isAnimating: true, // Lock phone UI during winner animation
-                  phase: 'winner-animation'
-                }
-              });
-            }
-          }
-          
-          console.log('🏆 Winner animation started - phones locked, Unity playing animation');
-        }
+        
+        // Start voting timer
+        startVotingTimer(roomCode);
+        
+        if (callback) callback({ success: true, message: result.message });
+      } else {
+        console.error(`Failed to submit answer: ${result.error}`);
+        if (callback) callback({ success: false, error: result.error });
       }
     } catch (error) {
-      console.error('Error playing card:', error);
+      console.error('Error handling submit answer:', error);
+      if (callback) callback({ success: false, error: error.message });
     }
   });
 
-  socket.on('draw-card', (data) => {
+  socket.on('submit-vote', (data, callback) => {
     try {
-      const { roomCode } = data;
-      const room = roomManager.rooms.get(roomCode);
-      if (!room) return;
-
-      // CHECK: Block card drawing during animation
-      if (roomManager.isAnimationBlocking(room)) {
-        console.log('🚫 Blocking card draw - animation in progress');
-        return; // Silently reject the draw
-      }
-
-      const playerIndex = roomManager.getPlayerIndex(room, socket.id);
-      if (playerIndex === -1) return;
-
-      const result = roomManager.handleDrawCard(room, playerIndex);
+      const { roomCode, vote } = data;
+      console.log(`Player ${socket.id} voted: ${vote} for room ${roomCode}`);
+      
+      const result = roomManager.handleSubmitVote(roomCode, socket.id, vote);
       
       if (result.success) {
-        // Notify all players about the card drawn
-        io.to(roomCode).emit('card-drawn', {
-          playerName: room.players.get(socket.id).name,
-          gameState: roomManager.getMainScreenGameState(room)
+        // Notify room about the vote (without revealing who voted what)
+        io.to(roomCode).emit('vote-submitted', {
+          votesSubmitted: result.votesSubmitted,
+          totalVotesNeeded: result.totalVotesNeeded
         });
-
-        // Send updated game state to each player individually
-        for (const [playerId] of room.players) {
-          const playerSocket = io.sockets.sockets.get(playerId);
-          if (playerSocket) {
-            const playerGameState = roomManager.getGameStateForPlayer(roomCode, playerId);
-            playerSocket.emit('game-state-updated', {
-              gameState: playerGameState
-            });
-          }
+        
+        // Check if all votes are in
+        if (result.allVotesIn) {
+          console.log(`All votes received for room ${roomCode}, ending round`);
+          setTimeout(() => {
+            endVotingRound(roomCode);
+          }, 1000); // Brief delay before showing results
         }
+        
+        if (callback) callback({ success: true, message: result.message });
+      } else {
+        console.error(`Failed to submit vote: ${result.error}`);
+        if (callback) callback({ success: false, error: result.error });
       }
     } catch (error) {
-      console.error('Error drawing card:', error);
-    }
-  });
-
-  socket.on('choose-color', (data) => { // Changed from choose-suit to choose-color
-    try {
-      const { roomCode, color } = data; // Changed from suit to color
-      const room = roomManager.rooms.get(roomCode);
-      if (!room) return;
-
-      room.gameState.chosenColor = color; // Changed from chosenSuit to chosenColor
-      room.gameState.currentColor = color; // Changed from currentSuit to currentColor
-
-      // NOTE: Animation lock is already set when the 8 card was played
-
-      // Notify all players about the color choice (includes animation state)
-      io.to(roomCode).emit('color-chosen', { // Changed from suit-chosen to color-chosen
-        playerName: room.players.get(socket.id).name,
-        color: color, // Changed from suit to color
-        gameState: roomManager.getMainScreenGameState(room)
-      });
-
-      // Send updated game state to each player individually (includes animation lock)
-      for (const [playerId] of room.players) {
-        const playerSocket = io.sockets.sockets.get(playerId);
-        if (playerSocket) {
-          const playerGameState = roomManager.getGameStateForPlayer(roomCode, playerId);
-          playerSocket.emit('game-state-updated', {
-            gameState: playerGameState
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Error choosing color:', error);
+      console.error('Error handling submit vote:', error);
+      if (callback) callback({ success: false, error: error.message });
     }
   });
 
@@ -802,104 +594,117 @@ io.on('connection', (socket) => {
   });
 });
 
-// Game timer functions
-function startGameTimer(roomCode) {
+// Over Under game timer and round management functions
+function startVotingTimer(roomCode) {
   const timer = setInterval(() => {
-    const roomData = roomManager.getRoomData(roomCode);
-    if (!roomData || roomData.gameState.phase !== 'playing') {
-      clearInterval(timer);
-      return;
-    }
-
-    if (roomData.gameState.timeLeft <= 0) {
-      clearInterval(timer);
-      endRound(roomCode);
-      return;
-    }
-
-    // Decrease time and emit update
     const room = roomManager.rooms.get(roomCode);
-    if (room) {
-      room.gameState.timeLeft--;
-      io.to(roomCode).emit('timer-update', {
-        timeLeft: room.gameState.timeLeft
-      });
+    if (!room || !room.gameState.isVotingActive) {
+      clearInterval(timer);
+      return;
+    }
+
+    room.gameState.votingTimeLeft--;
+    
+    // Send timer update to all players
+    io.to(roomCode).emit('voting-timer-update', {
+      timeLeft: room.gameState.votingTimeLeft
+    });
+
+    // Check if time is up or all votes are in
+    if (room.gameState.votingTimeLeft <= 0) {
+      clearInterval(timer);
+      console.log(`Voting time expired for room ${roomCode}`);
+      endVotingRound(roomCode);
     }
   }, 1000);
 }
 
-function endRound(roomCode) {
+function endVotingRound(roomCode) {
   const room = roomManager.rooms.get(roomCode);
   if (!room) return;
 
-  room.gameState.phase = 'round-end';
+  console.log(`Ending voting round for room ${roomCode}`);
   
-  // Collect all responses
-  const responses = Array.from(room.gameState.responses.entries()).map(([playerId, response]) => {
-    const player = room.players.get(playerId);
-    return {
-      playerId,
-      playerName: player ? player.name : 'Unknown',
-      text: response.text,
-      submittedAt: response.submittedAt
-    };
-  });
-
-  // Emit round results
-  io.to(roomCode).emit('round-ended', {
-    responses,
-    roundNumber: room.gameState.round
-  });
-
-  // Start next round after delay
-  setTimeout(() => {
-    startNextRound(roomCode);
-  }, 5000);
-}
-
-function startNextRound(roomCode) {
-  const room = roomManager.rooms.get(roomCode);
-  if (!room) return;
-
-  room.gameState.round++;
+  // Calculate scores and get results
+  const results = roomManager.calculateRoundResults(roomCode);
   
-  // End game after 3 rounds
-  if (room.gameState.round > 3) {
-    endGame(roomCode);
-    return;
+  if (results.success) {
+    // Send round results to all players
+    io.to(roomCode).emit('round-results', {
+      question: results.question,
+      playerAnswer: results.playerAnswer,
+      correctAnswer: results.correctAnswer,
+      correctVote: results.correctVote,
+      winners: results.winners,
+      votes: results.votes,
+      scores: results.currentScores
+    });
+
+    // Update Unity screen with scoreboard
+    io.to(roomCode).emit('update-scoreboard', {
+      scores: results.currentScores,
+      roundComplete: true
+    });
+
+    // Check if game is complete
+    if (results.gameComplete) {
+      setTimeout(() => {
+        endOverUnderGame(roomCode);
+      }, 5000); // Show results for 5 seconds before ending game
+    } else {
+      // Start next round after delay
+      setTimeout(() => {
+        startNextOverUnderRound(roomCode);
+      }, 5000);
+    }
   }
-
-  // Start new round
-  room.gameState.phase = 'playing';
-  room.gameState.currentPrompt = roomManager.getRandomPrompt();
-  room.gameState.timeLeft = 30;
-  room.gameState.responses.clear();
-
-  io.to(roomCode).emit('round-started', {
-    gameState: room.gameState
-  });
-
-  // Start timer for new round
-  startGameTimer(roomCode);
 }
 
-function endGame(roomCode) {
+function startNextOverUnderRound(roomCode) {
   const room = roomManager.rooms.get(roomCode);
   if (!room) return;
 
-  room.gameState.phase = 'game-over';
+  console.log(`Starting next round for room ${roomCode}`);
+  
+  const result = roomManager.nextRound(roomCode);
+  
+  if (result.success) {
+    // Send new question to all players
+    io.to(roomCode).emit('show-question', {
+      question: result.question,
+      answerer: result.answerer.name,
+      answererId: result.answerer.id,
+      roundNumber: result.roundNumber,
+      totalRounds: room.gameState.totalRounds
+    });
 
-  // Calculate final scores (for now, just participation points)
-  const finalScores = Array.from(room.players.values()).map(player => ({
-    playerId: player.id,
-    playerName: player.name,
-    score: player.score || Math.floor(Math.random() * 100) // Random score for demo
-  })).sort((a, b) => b.score - a.score);
+    console.log(`Round ${result.roundNumber} started - ${result.answerer.name} is the answerer`);
+  } else if (result.gameOver) {
+    endOverUnderGame(roomCode);
+  }
+}
 
-  io.to(roomCode).emit('game-ended', {
-    finalScores,
-    winner: finalScores[0]
-  });
+function endOverUnderGame(roomCode) {
+  const room = roomManager.rooms.get(roomCode);
+  if (!room) return;
+
+  console.log(`Ending Over Under game for room ${roomCode}`);
+  
+  const finalResults = roomManager.getFinalResults(roomCode);
+  
+  if (finalResults.success) {
+    // Set game phase to game-over
+    room.gameState.phase = 'game-over';
+    
+    // Send final results to all players
+    io.to(roomCode).emit('game-over', {
+      winner: finalResults.winner,
+      finalScores: finalResults.finalScores,
+      roundHistory: finalResults.roundHistory
+    });
+
+    console.log(`Game over! Winner: ${finalResults.winner.playerName} with ${finalResults.winner.totalScore} points`);
+  }
 }
 
 // Cleanup old rooms every hour
@@ -909,7 +714,7 @@ setInterval(() => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`🃏 Crazy 8s Game Server running on port ${PORT}`);
+  console.log(`� Over Under Game Server running on port ${PORT}`);
   console.log(`📱 Phone clients should connect to: http://localhost:${PORT}`);
   console.log(`🖥️  Main screen available at: http://localhost:${PORT}`);
 });

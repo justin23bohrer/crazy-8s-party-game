@@ -1,7 +1,7 @@
 {
-  "name": "jackbox-backend",
+  "name": "over-under-backend",
   "version": "1.0.0",
-  "description": "Backend server for Jackbox-style party game",
+  "description": "Backend server for Over Under trivia guessing party game",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -15,7 +15,7 @@
   "devDependencies": {
     "nodemon": "^3.0.1"
   },
-  "keywords": ["jackbox", "party", "game", "websocket", "realtime"],
+  "keywords": ["over-under", "trivia", "guessing", "party", "game", "websocket", "realtime"],
   "author": "",
   "license": "MIT"
 }

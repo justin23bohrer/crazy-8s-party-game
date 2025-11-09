@@ -2,21 +2,27 @@ import { useState, useEffect } from 'react';
 import './index.css';
 
 function GameScreen({ gameData, onLeave, socketService }) {
-  const [gameState, setGameState] = useState('waiting'); // waiting, playing, choosing-color, game-over (changed choosing-suit to choosing-color)
-  const [playerHand, setPlayerHand] = useState([]);
-  const [topCard, setTopCard] = useState(null);
-  const [currentColor, setCurrentColor] = useState(null); // Changed from currentSuit to currentColor
-  const [isPlayerTurn, setIsPlayerTurn] = useState(false);
-  const [currentPlayer, setCurrentPlayer] = useState('');
+  // Over Under game states
+  const [gameState, setGameState] = useState('waiting'); // waiting, playing, answering, voting, round-results, game-over
+  const [currentQuestion, setCurrentQuestion] = useState('');
+  const [isAnswerer, setIsAnswerer] = useState(false);
+  const [answererName, setAnswererName] = useState('');
+  const [playerAnswer, setPlayerAnswer] = useState(null);
+  const [isVotingActive, setIsVotingActive] = useState(false);
+  const [votingTimeLeft, setVotingTimeLeft] = useState(30);
+  const [playerVote, setPlayerVote] = useState(null);
+  const [votesSubmitted, setVotesSubmitted] = useState(0);
+  const [totalVotesNeeded, setTotalVotesNeeded] = useState(0);
+  const [currentRound, setCurrentRound] = useState(1);
+  const [totalRounds, setTotalRounds] = useState(4);
+  const [scores, setScores] = useState([]);
+  const [roundResults, setRoundResults] = useState(null);
   const [playersInfo, setPlayersInfo] = useState([]);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState('');
-  const [showColorSelector, setShowColorSelector] = useState(false); // Changed from showSuitSelector to showColorSelector
-  const [pendingEight, setPendingEight] = useState(null);
   const [isFirstPlayer, setIsFirstPlayer] = useState(false);
-  const [eightCardColors, setEightCardColors] = useState(new Map()); // Track chosen colors for 8 cards
-  const [isAnimating, setIsAnimating] = useState(false); // Track if spiral animation is playing
-  const [isProcessingHostAction, setIsProcessingHostAction] = useState(false); // Prevent multiple host actions
+  const [isProcessingHostAction, setIsProcessingHostAction] = useState(false);
+  const [answerInput, setAnswerInput] = useState('');
 
   useEffect(() => {
     // Check if this player is the first player based on gameData
@@ -27,168 +33,112 @@ function GameScreen({ gameData, onLeave, socketService }) {
   }, [gameData]);
 
   useEffect(() => {
-    console.log('🔧 PHONE: Setting up socket event listeners...');
-    // Set up WebSocket event listeners for Crazy 8s
+    console.log('🔧 PHONE: Setting up Over Under socket event listeners...');
+    // Set up WebSocket event listeners for Over Under
     socketService.on('game-started', handleGameStarted);
-    socketService.on('game-state-updated', handleGameStateUpdated);
-    socketService.on('card-played', handleCardPlayed);
-    socketService.on('card-drawn', handleCardDrawn);
-    socketService.on('color-chosen', handleColorChosen); // Changed from suit-chosen to color-chosen
-    socketService.on('game-ended', handleGameEnded);
+    socketService.on('show-question', handleShowQuestion);
+    socketService.on('voting-phase', handleVotingPhase);
+    socketService.on('vote-submitted', handleVoteSubmitted);
+    socketService.on('voting-timer-update', handleVotingTimerUpdate);
+    socketService.on('round-results', handleRoundResults);
+    socketService.on('update-scoreboard', handleUpdateScoreboard);
     socketService.on('game-over', handleGameOver);
-    socketService.on('player-action', handlePlayerAction);
     socketService.on('error', handleError);
-    socketService.on('room-closed', handleRoomClosed); // Room closure event
-    socketService.on('game-restarted', handleGameRestarted); // Explicit restart event
+    socketService.on('room-closed', handleRoomClosed);
     
-    console.log('🔧 PHONE: Event listeners set up, including game-over');
+    console.log('🔧 PHONE: Over Under event listeners set up');
 
     // Cleanup on unmount
     return () => {
       socketService.off('game-started', handleGameStarted);
-      socketService.off('game-state-updated', handleGameStateUpdated);
-      socketService.off('card-played', handleCardPlayed);
-      socketService.off('card-drawn', handleCardDrawn);
-      socketService.off('color-chosen', handleColorChosen); // Changed from suit-chosen to color-chosen
-      socketService.off('game-ended', handleGameEnded);
+      socketService.off('show-question', handleShowQuestion);
+      socketService.off('voting-phase', handleVotingPhase);
+      socketService.off('vote-submitted', handleVoteSubmitted);
+      socketService.off('voting-timer-update', handleVotingTimerUpdate);
+      socketService.off('round-results', handleRoundResults);
+      socketService.off('update-scoreboard', handleUpdateScoreboard);
       socketService.off('game-over', handleGameOver);
-      socketService.off('player-action', handlePlayerAction);
       socketService.off('error', handleError);
-      socketService.off('room-closed', handleRoomClosed); // Room closure event
-      socketService.off('game-restarted', handleGameRestarted); // Explicit restart event
+      socketService.off('room-closed', handleRoomClosed);
     };
   }, []);
 
   const handleGameStarted = (data) => {
-    console.log('Crazy 8s game started:', data);
+    console.log('Over Under game started:', data);
     setGameState('playing');
-    updateGameState(data.gameState);
-    setMessage('Game started! Match the color or rank of the top card.');
+    setMessage('Over Under game started! Wait for your question...');
+    setTotalRounds(data.totalRounds || 4);
   };
 
-  const handleGameStateUpdated = (data) => {
-    console.log('🔄 Game state updated:', data);
-    console.log('📱 Current gameState before processing:', gameState);
+  const handleShowQuestion = (data) => {
+    console.log('Question received:', data);
+    setCurrentQuestion(data.question);
+    setAnswererName(data.answerer);
+    setIsAnswerer(data.answererId === gameData.socketId);
+    setCurrentRound(data.roundNumber);
+    setTotalRounds(data.totalRounds);
+    setPlayerAnswer(null);
+    setPlayerVote(null);
+    setIsVotingActive(false);
+    setAnswerInput('');
+    setRoundResults(null);
     
-    // Check if game was restarted - detect from waiting, game-over, or any non-playing state
-    // Look for explicit restart indicators: phase=playing AND isRestarted=true
-    const gameWasRestarted = (gameState === 'game-over' || gameState === 'waiting') && 
-      data.gameState.phase === 'playing' && data.gameState.isRestarted === true;
-    
-    if (gameWasRestarted) {
-      console.log('🎮 RESTART DETECTED: Game restarted by host - switching back to playing mode');
-      setGameState('playing');
-      setMessage('Host restarted the game - new round started!');
-      
-      // Clear any color selector state
-      setShowColorSelector(false);
-      setPendingEight(null);
-      
-      // Reset animation state
-      setIsAnimating(false);
-      
-      // Clear 8 card color tracking for fresh start
-      setEightCardColors(new Map());
-      
-      // Clear any errors
-      setError(null);
-      
-      // Reset processing state so host buttons work again
-      setIsProcessingHostAction(false);
-      
-      console.log('✅ Phone client switched to playing mode');
+    if (data.answererId === gameData.socketId) {
+      setGameState('answering');
+      setMessage(`Your turn! Answer: ${data.question}`);
     } else {
-      console.log(`📱 Not switching modes - current gameState: ${gameState}, phase: ${data.gameState?.phase}, isRestarted: ${data.gameState?.isRestarted}`);
+      setGameState('waiting-for-answer');
+      setMessage(`${data.answerer} is answering: ${data.question}`);
     }
-    
-    updateGameState(data.gameState);
-    console.log('📱 Game state update processing complete');
   };
 
-  const handleGameRestarted = (data) => {
-    console.log('🔄 EXPLICIT RESTART EVENT received:', data);
+  const handleVotingPhase = (data) => {
+    console.log('Voting phase started:', data);
+    setPlayerAnswer(data.playerAnswer);
+    setIsVotingActive(true);
+    setVotingTimeLeft(data.votingTimeLeft);
+    setVotesSubmitted(0);
+    setTotalVotesNeeded(playersInfo.length - 1);
     
-    // Accept restart from any state (game-over, waiting, playing)
-    console.log('🎮 EXPLICIT RESTART: Switching to playing mode');
-    setGameState('playing');
-    setMessage(data.message || 'Host restarted the game - new round started!');
-    
-    // Clear any color selector state
-    setShowColorSelector(false);
-    setPendingEight(null);
-    
-    // Reset animation state
-    setIsAnimating(false);
-    
-    // Clear 8 card color tracking for fresh start
-    setEightCardColors(new Map());
-    
-    // Clear any errors
-    setError(null);
-    
-    // Reset processing state
-    setIsProcessingHostAction(false);
-    
-    console.log('✅ Phone client switched to playing mode via explicit restart event');
-  };
-
-  const handleCardPlayed = (data) => {
-    console.log('Card played:', data);
-    setMessage(`${data.playerName} played ${formatCard(data.card)}`);
-    updateGameState(data.gameState);
-  };
-
-  const handleCardDrawn = (data) => {
-    console.log('Card drawn:', data);
-    setMessage(`${data.playerName} drew a card`);
-    updateGameState(data.gameState);
-  };
-
-  const handleColorChosen = (data) => { // Changed from handleSuitChosen to handleColorChosen
-    console.log('Color chosen:', data);
-    setMessage(`${data.playerName} chose ${getColorEmoji(data.color)} - Watch the main screen! 🎬`); // Enhanced message
-    setCurrentColor(data.color); // Changed from setCurrentSuit to setCurrentColor
-    setShowColorSelector(false); // Changed from setShowSuitSelector to setShowColorSelector
-    setPendingEight(null);
-    
-    // Set animation state immediately when color is chosen
-    setIsAnimating(true);
-    
-    // Update the 8 card color tracking
-    if (data.card && data.card.rank === '8') {
-      setEightCardColors(prev => {
-        const newMap = new Map(prev);
-        const cardKey = `${data.card.color}-${data.card.rank}`;
-        newMap.set(cardKey, data.color);
-        return newMap;
-      });
+    if (isAnswerer) {
+      setGameState('waiting-for-votes');
+      setMessage(`You answered ${data.playerAnswer}. Others are voting...`);
+    } else {
+      setGameState('voting');
+      setMessage(`${data.answerer} answered ${data.playerAnswer}. Vote Over or Under!`);
     }
-    
-    updateGameState(data.gameState);
   };
 
-  const handleGameEnded = (data) => {
-    console.log('🏆 Winner detected - staying locked until animation complete:', data);
-    // DON'T change gameState yet - keep it as 'playing'
-    // DON'T show game over screen yet
-    setMessage(`🏆 ${data.winner} wins! Watch the main screen! 🎬`);
-    setIsAnimating(true); // Lock UI completely during winner animation
+  const handleVoteSubmitted = (data) => {
+    console.log('Vote submitted update:', data);
+    setVotesSubmitted(data.votesSubmitted);
+    setTotalVotesNeeded(data.totalVotesNeeded);
   };
-  
+
+  const handleVotingTimerUpdate = (data) => {
+    setVotingTimeLeft(data.timeLeft);
+  };
+
+  const handleRoundResults = (data) => {
+    console.log('Round results received:', data);
+    setRoundResults(data);
+    setScores(data.scores);
+    setGameState('round-results');
+    
+    const winners = data.winners.length > 0 ? data.winners.join(', ') : 'No one';
+    setMessage(`Correct answer: ${data.correctAnswer}. Winners: ${winners}`);
+  };
+
+  const handleUpdateScoreboard = (data) => {
+    console.log('Scoreboard updated:', data);
+    setScores(data.scores);
+  };
+
   const handleGameOver = (data) => {
-    console.log('🏆 PHONE: Game over event received!', data);
-    console.log('🏆 PHONE: Current game state before:', gameState);
-    console.log('🏆 PHONE: Current isAnimating before:', isAnimating);
-    
+    console.log('🏆 Game over received:', data);
     setGameState('game-over');
-    setMessage(`Game Over! ${data.winner} wins!`);
-    setIsAnimating(false); // Unlock UI now that animation is complete
-    
-    console.log('🏆 PHONE: Game state set to game-over');
-  };
-
-  const handlePlayerAction = (data) => {
-    setMessage(data.message);
+    setScores(data.finalScores);
+    setMessage(`Game Over! ${data.winner.playerName} wins with ${data.winner.totalScore} points!`);
   };
 
   const handleError = (data) => {
@@ -240,202 +190,64 @@ function GameScreen({ gameData, onLeave, socketService }) {
     }
   };
 
-  const updateGameState = (gameState) => {
-    // Handle player hand (direct property from server)
-    if (gameState.playerHand) {
-      setPlayerHand(gameState.playerHand);
-    }
-    
-    // Handle players list
-    if (gameState.players) {
-      setPlayersInfo(gameState.players);
-    }
-    
-    if (gameState.topCard) {
-      setTopCard(gameState.topCard);
-    }
-    
-    if (gameState.currentColor) { // Changed from currentSuit to currentColor
-      setCurrentColor(gameState.currentColor); // Changed from setCurrentSuit to setCurrentColor
-    }
-    
-    // Track animation state from server
-    if (gameState.isAnimating !== undefined) {
-      console.log('📱 Animation state received:', gameState.isAnimating);
-      setIsAnimating(gameState.isAnimating);
-      if (gameState.isAnimating) {
-        console.log('🚫 UI locked - animation in progress');
-        // Close color selector if animation starts
-        setShowColorSelector(false);
-        setPendingEight(null);
-      } else if (isAnimating && !gameState.isAnimating) {
-        // Animation just finished
-        console.log('✅ UI unlocked - animation complete');
-      }
-    }
-
-    // Handle game phase changes
-    if (gameState.phase) {
-      console.log('📱 Game phase received:', gameState.phase);
-      if (gameState.phase === 'winner-animation' || gameState.phase === 'game-over') {
-        console.log('🏆 Winner animation or game over - disabling UI');
-        setIsAnimating(true); // Lock UI during winner animation/game over
-        setShowColorSelector(false);
-        setPendingEight(null);
-      }
-    }
-
-    if (gameState.currentPlayer !== undefined) {
-      // Convert player index to player name
-      if (typeof gameState.currentPlayer === 'number' && gameState.players) {
-        const currentPlayerData = gameState.players[gameState.currentPlayer];
-        if (currentPlayerData) {
-          setCurrentPlayer(currentPlayerData.name);
-          setIsPlayerTurn(currentPlayerData.name === gameData.playerName);
-        }
-      } else if (typeof gameState.currentPlayer === 'string') {
-        setCurrentPlayer(gameState.currentPlayer);
-        setIsPlayerTurn(gameState.currentPlayer === gameData.playerName);
-      }
-    }
-    
-    // Handle turn state directly if provided
-    if (gameState.isYourTurn !== undefined) {
-      setIsPlayerTurn(gameState.isYourTurn);
-    }
-  };
-
-  const playCard = async (card) => {
-    if (!isPlayerTurn) {
-      setError("It's not your turn!");
+  const submitAnswer = async () => {
+    if (!answerInput.trim()) {
+      setError('Please enter a number');
       return;
     }
 
-    if (isAnimating) {
-      setError("Please wait for the animation to complete!");
+    const numAnswer = parseInt(answerInput.trim());
+    if (isNaN(numAnswer)) {
+      setError('Please enter a valid number');
       return;
     }
 
     try {
       setError(null);
-      
-      // If it's an 8, check if this would be a winning play
-      if (card.rank === '8') {
-        // Check if this is the last card (winning play)
-        const isWinningPlay = playerHand.length === 1; // This card is the last one
-        
-        if (isWinningPlay) {
-          console.log('🏆 Playing winning 8 - skipping color selection');
-          // Play the winning 8 directly without color selection
-          socketService.emitGameAction('play-card', {
-            roomCode: gameData.roomCode,
-            card: card
-            // No chosenColor needed for winning 8
-          });
-          return;
-        } else {
-          // Non-winning 8 - show color selector
-          setPendingEight(card);
-          setShowColorSelector(true);
-          return;
-        }
-      }
-
-      socketService.emitGameAction('play-card', {
+      socketService.emitGameAction('submit-answer', {
         roomCode: gameData.roomCode,
-        card: card
+        answer: numAnswer
       });
+      setMessage('Answer submitted! Waiting for others to vote...');
     } catch (error) {
-      console.error('Failed to play card:', error);
-      setError('Failed to play card: ' + error.message);
+      console.error('Failed to submit answer:', error);
+      setError('Failed to submit answer: ' + error.message);
     }
   };
 
-  const chooseColor = async (color) => { // Changed from chooseSuit to chooseColor and suit to color
-    if (!pendingEight) return;
-
-    if (isAnimating) {
-      setError("Please wait for the animation to complete!");
+  const submitVote = async (vote) => {
+    if (playerVote) {
+      setError('You have already voted!');
       return;
     }
 
     try {
       setError(null);
-      
-      // Track this 8 card's chosen color immediately for local state
-      setEightCardColors(prev => {
-        const newMap = new Map(prev);
-        const cardKey = `${pendingEight.color}-${pendingEight.rank}`;
-        newMap.set(cardKey, color);
-        return newMap;
-      });
-      
-      // Play the 8 with the chosen color
-      socketService.emitGameAction('play-card', {
+      socketService.emitGameAction('submit-vote', {
         roomCode: gameData.roomCode,
-        card: pendingEight,
-        chosenColor: color // Include the chosen color with the card play
+        vote: vote
       });
-      
-      // Reset the color selector state
-      setShowColorSelector(false);
-      setPendingEight(null);
-      
+      setPlayerVote(vote);
+      setMessage(`Voted ${vote}! Waiting for others...`);
     } catch (error) {
-      console.error('Failed to choose color:', error); // Changed error message
-      setError('Failed to choose color: ' + error.message); // Changed error message
+      console.error('Failed to submit vote:', error);
+      setError('Failed to submit vote: ' + error.message);
     }
   };
 
-  const drawCard = async () => {
-    if (!isPlayerTurn) {
-      setError("It's not your turn!");
-      return;
-    }
 
-    if (isAnimating) {
-      setError("Please wait for the animation to complete!");
-      return;
-    }
-
-    try {
-      setError(null);
-      socketService.emitGameAction('draw-card', {
-        roomCode: gameData.roomCode
-      });
-    } catch (error) {
-      console.error('Failed to draw card:', error);
-      setError('Failed to draw card: ' + error.message);
-    }
-  };
 
   const startGame = async () => {
     try {
-      console.log('Starting game from phone client');
+      console.log('Starting Over Under game from phone client');
       setError(null);
       
-      // Use emitGameAction to send to server, not the internal emit
       socketService.emitGameAction('start-game', { roomCode: gameData.roomCode });
       console.log('Sent start-game event to server with roomCode:', gameData.roomCode);
     } catch (error) {
       console.error('Failed to start game:', error);
       setError('Failed to start game: ' + error.message);
     }
-  };
-
-  const formatCard = (card) => {
-    if (!card) return '';
-    return `${card.rank} ${getColorEmoji(card.color)}`; // Changed to use color instead of suit
-  };
-
-  const getColorEmoji = (color) => { // Changed from getSuitSymbol to getColorEmoji
-    const colorEmojis = {
-      'red': '🔴',
-      'blue': '🔵',
-      'green': '🟢',
-      'yellow': '🟡'
-    };
-    return colorEmojis[color] || color;
   };
 
   const getPlayerColorHex = (color) => {
@@ -448,41 +260,10 @@ function GameScreen({ gameData, onLeave, socketService }) {
     return colorHex[color] || '#6b7280';
   };
 
-  const getCardColor = (color) => { // Simplified - just return the color name
-    return color;
-  };
-
-  // Helper function to get hex color values for styling
-  const getCardColorHex = (color) => {
-    const colorMap = {
-      'red': '#ff4444',
-      'blue': '#4444ff', 
-      'green': '#44aa44',
-      'yellow': '#ffd700'
-    };
-    return colorMap[color] || '#000000';
-  };
-
-  const canPlayCard = (card) => {
-    if (!topCard || !isPlayerTurn || isAnimating) return false; // Block actions during spiral animation
-    
-    // 8s can always be played
-    if (card.rank === '8') return true;
-    
-    // Match color or rank
-    return card.color === currentColor || card.rank === topCard.rank; // Changed from suit to color and currentSuit to currentColor
-  };
-
-  // Helper function to get the display color for an 8 card
-  const getEightCardDisplayColor = (card) => {
-    const cardKey = `${card.color}-${card.rank}`;
-    return eightCardColors.get(cardKey) || null; // Returns chosen color or null if not chosen yet
-  };
-
   const renderWaitingScreen = () => (
     <div className="game-content waiting">
       <div className="status-message">
-        <h2>🎮 Connected!</h2>
+        <h2>� Connected to Over Under!</h2>
         <p>Room: {gameData.roomCode}</p>
         <p>Player: <span className="player-name-white">
           {gameData.playerName}
@@ -500,138 +281,215 @@ function GameScreen({ gameData, onLeave, socketService }) {
                 className="start-game-btn"
                 onClick={startGame}
               >
-                Start Game
+                Start Over Under
               </button>
             </div>
           ) : (
-            <p>Waiting for first player to start Crazy 8s...</p>
+            <p>Waiting for first player to start Over Under...</p>
           )}
         </div>
       </div>
     </div>
   );
 
-  const renderColorSelector = () => (
-    <div className="color-selector-overlay">
-      <div className="color-selector">
-        <h3>Choose a color for your 8:</h3> {/* Changed from suit to color */}
-        <div className="colors"> {/* Changed from suits to colors */}
-          {['red', 'blue', 'green', 'yellow'].map(color => ( // Changed suit array to color array
-            <button
-              key={color}
-              className={`color-button ${color}`} // Changed from suit-button to color-button
-              onClick={() => chooseColor(color)} // Changed from chooseSuit to chooseColor
-              disabled={isAnimating} // Disable color selection during animations
-            >
-              {getColorEmoji(color)} {/* Changed from getSuitSymbol to getColorEmoji */}
-            </button>
-          ))}
+  const renderAnsweringScreen = () => (
+    <div className="game-content answering">
+      <div className="question-container">
+        <h2>🤔 Your Turn to Answer!</h2>
+        <div className="question-text">
+          {currentQuestion}
         </div>
+        <div className="answer-input-section">
+          <input
+            type="number"
+            value={answerInput}
+            onChange={(e) => setAnswerInput(e.target.value)}
+            placeholder="Enter your guess..."
+            className="answer-input"
+          />
+          <button
+            onClick={submitAnswer}
+            className="submit-answer-btn"
+            disabled={!answerInput.trim()}
+          >
+            Submit Answer
+          </button>
+        </div>
+        <p className="round-info">Round {currentRound} of {totalRounds}</p>
       </div>
     </div>
   );
 
-  const renderPlayingScreen = () => (
-    <div className={`game-content playing ${isAnimating ? 'animation-locked' : ''}`}>
-      <div className="game-header">
-        <div className="player-info">
-          <span className="player-name-white">
-            {gameData?.playerName}
-          </span>
+  const renderWaitingForAnswerScreen = () => (
+    <div className="game-content waiting-answer">
+      <div className="status-message">
+        <h2>⏳ Waiting for Answer</h2>
+        <div className="question-text">
+          {currentQuestion}
         </div>
-        <div className="game-info">
-          <span className="turn-info">
-            {isPlayerTurn ? "Your Turn!" : `${currentPlayer}'s Turn`}
-          </span>
-          <span className="current-color"> {/* Changed from current-suit to current-color */}
-            Current: {currentColor ? getColorEmoji(currentColor) : 'Any'} {/* Changed from currentSuit to currentColor and getSuitSymbol to getColorEmoji */}
-          </span>
-        </div>
-        <button 
-          onClick={onLeave} 
-          className="leave-button"
-          disabled={isAnimating} // Disable leave button during animations
-        >
-          Leave
-        </button>
+        <p>{answererName} is thinking...</p>
+        <p className="round-info">Round {currentRound} of {totalRounds}</p>
       </div>
-      
-      {error && (
-        <div className="error-display">
-          {error}
-        </div>
-      )}
-      
-      <div className="game-area">        
-        <div className="player-hand">
-          <h3>Your Hand ({playerHand.length} cards):</h3>
-          <div className="cards">
-            {playerHand.map((card, index) => {
-              const is8Card = card.rank === '8';
-              const chosenColor = is8Card ? getEightCardDisplayColor(card) : null;
-              
-              let cardClassName;
-              if (is8Card && chosenColor) {
-                // 8 card with chosen color - show as regular colored card
-                cardClassName = `card ${chosenColor}`;
-              } else if (is8Card) {
-                // 8 card without chosen color - show spiral
-                cardClassName = `card eight-card`;
-              } else {
-                // Regular card
-                cardClassName = `card ${getCardColor(card.color)}`;
-              }
-              
-              return (
-                <button
-                  key={`${card.color}-${card.rank}-${index}`}
-                  className={`${cardClassName} ${canPlayCard(card) ? 'playable' : 'unplayable'}`}
-                  onClick={() => playCard(card)}
-                  disabled={!canPlayCard(card)}
-                >
-                  <div className="card-inner">
-                    {is8Card && !chosenColor ? (
-                      <div className="eight-card-content">
-                        <div className="eight-card-number">8</div>
-                      </div>
-                    ) : (
-                      <div className="card-number">{card.rank}</div>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-        
-        {isPlayerTurn && (
-          <div className="game-actions">
-            <button 
-              onClick={drawCard}
-              className="draw-button"
-              disabled={isAnimating} // Disable drawing during animations
-            >
-              Draw Card
-            </button>
-          </div>
-        )}
-      </div>
-      
-      {showColorSelector && !isAnimating && renderColorSelector()}
     </div>
   );
+
+  const renderVotingScreen = () => (
+    <div className="game-content voting">
+      <div className="voting-container">
+        <h2>🗳️ Time to Vote!</h2>
+        <div className="question-text">
+          {currentQuestion}
+        </div>
+        <div className="answer-display">
+          <p><strong>{answererName} answered: {playerAnswer}</strong></p>
+        </div>
+        <div className="voting-buttons">
+          <button
+            onClick={() => submitVote('under')}
+            className="vote-btn under-btn"
+            disabled={playerVote !== null}
+          >
+            UNDER 👇
+          </button>
+          <button
+            onClick={() => submitVote('over')}
+            className="vote-btn over-btn"
+            disabled={playerVote !== null}
+          >
+            OVER 👆
+          </button>
+        </div>
+        {playerVote && (
+          <div className="vote-submitted">
+            ✅ You voted: {playerVote.toUpperCase()}
+          </div>
+        )}
+        <div className="voting-status">
+          <p>Votes: {votesSubmitted}/{totalVotesNeeded}</p>
+          <p>Time left: {votingTimeLeft}s</p>
+        </div>
+        <p className="round-info">Round {currentRound} of {totalRounds}</p>
+      </div>
+    </div>
+  );
+
+  const renderWaitingForVotesScreen = () => (
+    <div className="game-content waiting-votes">
+      <div className="status-message">
+        <h2>⏳ Waiting for Votes</h2>
+        <div className="question-text">
+          {currentQuestion}
+        </div>
+        <p>You answered: <strong>{playerAnswer}</strong></p>
+        <p>Others are voting Over or Under...</p>
+        <div className="voting-status">
+          <p>Votes: {votesSubmitted}/{totalVotesNeeded}</p>
+          <p>Time left: {votingTimeLeft}s</p>
+        </div>
+        <p className="round-info">Round {currentRound} of {totalRounds}</p>
+      </div>
+    </div>
+  );
+
+  const renderRoundResultsScreen = () => (
+    <div className="game-content round-results">
+      <div className="results-container">
+        <h2>📊 Round Results</h2>
+        <div className="question-text">
+          {roundResults?.question}
+        </div>
+        <div className="answer-comparison">
+          <p>Player Answer: <strong>{roundResults?.playerAnswer}</strong></p>
+          <p>Correct Answer: <strong>{roundResults?.correctAnswer}</strong></p>
+          <p>Correct Vote: <strong>{roundResults?.correctVote?.toUpperCase()}</strong></p>
+        </div>
+        {roundResults?.winners?.length > 0 && (
+          <div className="winners">
+            <p>🏆 Winners: {roundResults.winners.join(', ')}</p>
+          </div>
+        )}
+        <div className="scores">
+          <h3>Current Scores:</h3>
+          {scores.map(player => (
+            <div key={player.playerId} className="score-item">
+              <span style={{ color: getPlayerColorHex(player.playerColor) }}>
+                {player.playerName}
+              </span>
+              <span>{player.score} pts</span>
+            </div>
+          ))}
+        </div>
+        <p className="round-info">Round {currentRound - 1} of {totalRounds} complete</p>
+      </div>
+    </div>
+  );
+
+  const renderPlayingScreen = () => {
+    if (gameState === 'answering') return renderAnsweringScreen();
+    if (gameState === 'waiting-for-answer') return renderWaitingForAnswerScreen();
+    if (gameState === 'voting') return renderVotingScreen();
+    if (gameState === 'waiting-for-votes') return renderWaitingForVotesScreen();
+    if (gameState === 'round-results') return renderRoundResultsScreen();
+    
+    // Default playing screen
+    return (
+      <div className="game-content playing">
+        <div className="game-header">
+          <div className="player-info">
+            <span className="player-name-white">
+              {gameData?.playerName}
+            </span>
+          </div>
+          <div className="game-info">
+            <span className="round-info">
+              Round {currentRound} of {totalRounds}
+            </span>
+          </div>
+          <button onClick={onLeave} className="leave-button">
+            Leave
+          </button>
+        </div>
+        
+        {error && (
+          <div className="error-display">
+            {error}
+          </div>
+        )}
+        
+        <div className="status-message">
+          <h2>🎯 Over Under Game</h2>
+          <p>{message}</p>
+          {scores.length > 0 && (
+            <div className="current-scores">
+              <h3>Current Scores:</h3>
+              {scores.map(player => (
+                <div key={player.playerId} className="score-item">
+                  <span style={{ color: getPlayerColorHex(player.playerColor) }}>
+                    {player.playerName}
+                  </span>
+                  <span>{player.score} pts</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   const renderGameOverScreen = () => (
     <div className="game-content game-over">
       <div className="status-message">
-        <h2>🎉 Game Complete!</h2>
+        <h2>🎉 Over Under Complete!</h2>
         <p>{message}</p>
         <div className="final-scores">
           <h3>Final Results:</h3>
-          {playersInfo.map(player => (
-            <div key={player.name} className="player-score">
-              <span>{player.name}</span>
-              <span>{player.cardCount} cards</span>
+          {scores.map((player, index) => (
+            <div key={player.playerId} className={`player-score ${index === 0 ? 'winner' : ''}`}>
+              <span style={{ color: getPlayerColorHex(player.playerColor) }}>
+                {index === 0 ? '🏆 ' : ''}{player.playerName}
+              </span>
+              <span>{player.totalScore} pts</span>
             </div>
           ))}
         </div>
@@ -673,9 +531,11 @@ function GameScreen({ gameData, onLeave, socketService }) {
   );
 
   return (
-    <div className="game-screen crazy-8s">
+    <div className="game-screen over-under">
       {gameState === 'waiting' && renderWaitingScreen()}
-      {gameState === 'playing' && renderPlayingScreen()}
+      {(gameState === 'playing' || gameState === 'answering' || gameState === 'waiting-for-answer' || 
+        gameState === 'voting' || gameState === 'waiting-for-votes' || gameState === 'round-results') && 
+        renderPlayingScreen()}
       {gameState === 'game-over' && renderGameOverScreen()}
     </div>
   );

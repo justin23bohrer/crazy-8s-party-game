@@ -1,8 +1,9 @@
 {
-  "name": "crazy-8s-phone-client",
+  "name": "over-under-phone-client",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
+  "description": "Phone client for Over Under trivia guessing game",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

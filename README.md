@@ -1,91 +1,101 @@
-# 🎮 Crazy 8s Multiplayer Card Game
+# � Over Under - Trivia Guessing Party Game
 
-A complete real-time multiplayer Crazy 8s card game featuring Unity-powered main screen, React phone clients, and Node.js backend with WebSocket communication.
+A Jackbox-style multiplayer trivia game where players guess numeric answers and vote whether the actual answer is "over" or "under" their guess. Features Unity-powered main screen, React phone clients, and Node.js backend with WebSocket communication.
 
-## 🏗️ Three-Tier Architecture
+## � Game Overview
+
+**Over Under** is a party game for 2-4 players where:
+- Players join using their phones with a 4-letter room code
+- Each player gets one turn as the "answerer" per game
+- The answerer guesses a numeric answer to a trivia question
+- Other players vote whether the real answer is "over" or "under" the guess
+- Players earn points for correct votes (150 points each)
+- The player with the most points wins!
+
+## 🏗️ Architecture
+
+The game consists of three components:
+
+### 1. **Unity Host Screen** (Display/TV)
+- Shows game status, questions, and results
+- Displays scoreboard and winner animations
+- **Status: ⚠️ NEEDS IMPLEMENTATION** (You handle this part)
+
+### 2. **Phone Clients** (React + Vite)
+- Players use phones to join and play
+- Shows questions, answer input, voting buttons
+- Displays scores and results
+- **Status: ✅ COMPLETE**
+
+### 3. **Backend Server** (Node.js + Socket.IO)
+- Manages rooms, players, and game state
+- Handles trivia questions and scoring
+- Coordinates communication between Unity and phones
+- **Status: ✅ COMPLETE**
+
+## 🎯 Game Flow
+
+1. **Lobby Phase**: Players join with room code
+2. **Game Start**: Host/first player starts the game
+3. **Round Loop** (one round per player):
+   - Random player selected as answerer
+   - Question displayed to all players
+   - Answerer submits numeric guess
+   - Other players vote "Over" or "Under" (30 seconds)
+   - Results shown with correct answer and scores
+4. **Game End**: Final scoreboard and winner announced
+
+## � Setup Instructions
+
+### Prerequisites
+- Node.js (v14 or higher)
+- NPM or Yarn
+
+### Backend Setup
+```bash
+cd backend
+npm install
+npm start
+# Server runs on http://localhost:3000
+```
+
+### Phone Client Setup
+```bash
+cd phone-client
+npm install
+npm run dev
+# Client runs on http://localhost:5173
+```
+
+### Testing the Game
+1. Start backend server
+2. Start phone client
+3. Open multiple browser tabs to `http://localhost:5173`
+4. Join the same room code from different tabs
+5. First player can start the game
+
+## 📁 File Structure
 
 ```
-┌─────────────────┐    WebSocket    ┌─────────────────┐    WebSocket    ┌─────────────────┐
-│   Phone Client  │ ←──────────────→ │     Backend     │ ←──────────────→ │   Unity Client  │
-│   (React Web)   │                 │   (Node.js +    │                 │ (Main Screen/TV)│
-│   Players Join  │                 │   Socket.IO +   │                 │  Game Display   │
-│   & Play Cards  │                 │  Game Logic)    │                 │  & Host Control │
-└─────────────────┘                 └─────────────────┘                 └─────────────────┘
-```
-
-## 🎯 Game Components
-
-### 📱 **Phone Client** (React + Vite + Socket.IO)
-- **Purpose**: Player interface for joining and playing
-- **Technology**: React, Vite, Socket.IO-client
-- **Features**: Mobile-optimized card game interface
-- **Players**: Each player uses their phone to play
-
-### 🖥️ **Unity Main Screen** (Unity 2022.3+ LTS)
-- **Purpose**: Host display for TV/computer screen
-- **Technology**: Unity Engine with Socket.IO Unity package
-- **Features**: Beautiful game visualization, real-time updates
-- **Host**: Single screen showing game state to all players
-
-### ⚡ **Backend Server** (Node.js + Express + Socket.IO)
-- **Purpose**: Game logic and real-time communication hub
-- **Technology**: Node.js, Express, Socket.IO
-- **Features**: Room management, game state, card logic
-
-## 📁 Detailed Project Structure
-
-```
-jackbox-attempt/
-├── 📱 phone-client/              # React phone client (players)
+over-under/
+├── backend/
+│   ├── server.js              # Main server with Socket.IO events
+│   ├── package.json          # Backend dependencies
+│   └── utils/
+│       ├── overUnderGameLogic.js  # Game rules and scoring
+│       └── roomManager.js     # Room and player management
+├── phone-client/
 │   ├── src/
-│   │   ├── App.jsx              # Main app component
-│   │   ├── JoinScreen.jsx       # Room joining interface  
-│   │   ├── GameScreen.jsx       # Card playing interface
-│   │   ├── SocketService.js     # WebSocket communication
-│   │   └── index.css           # Mobile-optimized styling
-│   ├── package.json
-│   └── vite.config.js          # Vite build configuration
-│
-├── 🖥️ Crazy8sMainScreen/         # Unity main screen (host)
-│   ├── Assets/
-│   │   ├── 🎮 Core Game Scripts
-│   │   │   ├── GameManager.cs        # Main game controller
-│   │   │   ├── NetworkManager.cs     # Socket.IO communication
-│   │   │   ├── GameStateManager.cs   # Game state tracking
-│   │   │   └── UIManager.cs          # UI updates & effects
-│   │   ├── 🃏 Card System
-│   │   │   ├── CardController.cs     # Individual card behavior
-│   │   │   ├── CardDisplay.cs        # Card visual display
-│   │   │   └── CardAnimationManager.cs # Card animations
-│   │   ├── 👥 Player Management
-│   │   │   ├── PlayerManager.cs      # Player tracking
-│   │   │   ├── LobbyPlayerManager.cs # Lobby player display
-│   │   │   └── PlayerPositionManager.cs # Player positioning
-│   │   ├── 🎨 Visual Effects
-│   │   │   ├── CloudMover.cs        # Background animations
-│   │   │   ├── FunDotManager.cs     # Particle effects
-│   │   │   └── SpiralAnimationController.cs # Win animations
-│   │   ├── Scenes/
-│   │   │   └── SampleScene.unity    # Main game scene
-│   │   └── Prefabs/                # Reusable game objects
-│   ├── Crazy8sMainScreen.sln       # Visual Studio solution
-│   └── Assembly-CSharp.csproj      # C# project file
-│
-├── ⚡ backend/                    # Node.js server
-│   ├── server.js                  # Express + Socket.IO server
-│   ├── utils/
-│   │   ├── roomManager.js         # Room creation & management
-│   │   └── crazy8sGameLogic.js    # Complete Crazy 8s rules
-│   └── package.json
-│
-├── 📖 Documentation
-│   ├── README.md                  # This file
-│   ├── QUICKSTART.md             # Quick setup guide
-│   └── .github/
-│       └── copilot-instructions.md
+│   │   ├── GameScreen.jsx    # Main game UI for phones
+│   │   ├── SocketService.js  # Socket.IO client wrapper
+│   │   └── ...
+│   ├── package.json          # Frontend dependencies
+│   └── vite.config.js        # Vite configuration
+├── OverUnderMainScreen/      # Unity project (your part)
+└── README.md                 # This file
 ```
 
-## 🚀 Unity Main Screen Features
+## � Socket Events (For Unity Integration)
 
 ### 🎨 **Visual Excellence**
 - **Modern UI**: Clean, polished interface with glassmorphism effects
@@ -118,185 +128,89 @@ jackbox-attempt/
 
 ## 🚀 Features
 
-### 📱 Phone Client (✅ Complete)
-- **Room Joining**: 4-letter code entry with validation
-- **Player Names**: Custom name input with character limits
-- **Card Interface**: Visual card hand with play/draw actions
-- **Real-time Updates**: Instant game state synchronization
-- **Mobile Optimized**: Touch-friendly responsive design
+### Events Unity Should Listen For:
+- `room-created` - Room was created, contains room code
+- `player-joined` - New player joined, update player list
+- `game-started` - Game began, show start screen
+- `show-question` - Display question and current answerer
+- `voting-phase` - Show player's guess, start voting countdown
+- `round-results` - Display results with correct answer and winners
+- `update-scoreboard` - Update score display
+- `game-over` - Show final results and winner
 
-### 🖥️ Unity Main Screen (✅ Complete)  
-- **Host Dashboard**: Room creation and game management
-- **Live Player Display**: Real-time lobby and game participants
-- **Game Visualization**: Current state, turn indicator, deck count
-- **Visual Effects**: Background animations and color transitions
-- **Winner Celebrations**: Animated victory sequences
+### Events Unity Should Emit:
+- `create-room` - Create new game room
+- `host-join-room` - Join room as host to receive updates
+- `start-game` - Start the game (or let first player do this)
 
-### ⚡ Backend Server (✅ Complete)
-- **Room Management**: Unique code generation and validation
-- **WebSocket Hub**: Real-time bidirectional communication  
-- **Game Logic**: Complete Crazy 8s rules implementation
-- **Player Tracking**: Join/leave handling and state management
-- **Error Handling**: Graceful disconnection and reconnection
-
-## 🛠️ Tech Stack
-
-- **Unity Main Screen**: Unity 2022.3+ LTS, C#, Socket.IO Unity
-- **Phone Client**: React 18, Vite 4, Socket.IO-client
-- **Backend**: Node.js, Express, Socket.IO
-- **Communication**: WebSockets for real-time synchronization
-- **Styling**: Modern CSS with glassmorphism effects
-
-## 📡 WebSocket Events
-
-### Unity Client ↔ Server
+### Example Unity Socket Usage:
 ```csharp
-// Unity sends
+// Listen for room creation
+socket.On("room-created", (data) => {
+    string roomCode = data["roomCode"].str;
+    DisplayRoomCode(roomCode);
+});
+
+// Listen for questions
+socket.On("show-question", (data) => {
+    string question = data["question"].str;
+    string answerer = data["answerer"].str;
+    DisplayQuestion(question, answerer);
+});
+
+// Create room
 socket.Emit("create-room");
-socket.Emit("start-game", roomCode);
-
-// Unity receives  
-socket.On("room-created", data => HandleRoomCreated(data));
-socket.On("game-state-update", data => HandleGameStateUpdate(data));
-socket.On("player-joined", data => HandlePlayerJoined(data));
-socket.On("game-over", data => HandleGameOver(data));
 ```
 
-### Phone Client ↔ Server
-```javascript
-// Phone sends
-socket.emit('join-room', { roomCode, playerName });
-socket.emit('play-card', { cardId, chosenColor });
-socket.emit('draw-card');
+## 🎲 Sample Questions
 
-// Phone receives
-socket.on('room-joined', data => updateGameState(data));
-socket.on('card-played', data => handleCardPlayed(data));
-socket.on('game-over', data => showWinner(data));
+The game includes 30 trivia questions like:
+- "How many U.S. presidents have there been?" (Answer: 46)
+- "What year was the iPhone first released?" (Answer: 2007)  
+- "How many bones are in the human body?" (Answer: 206)
+
+Questions are randomly selected and not repeated during a game.
+
+## � What You Need to Build (Unity)
+
+1. **Room Display**: Show 4-letter room code for players to join
+2. **Player List**: Display joined players with their colors
+3. **Question Display**: Show current trivia question clearly
+4. **Answerer Highlight**: Indicate who is currently answering
+5. **Voting Countdown**: 30-second timer for voting phase
+6. **Results Screen**: Show player's guess, correct answer, and winners
+7. **Scoreboard**: Display current scores with player colors
+8. **Winner Animation**: Celebrate the final winner
+9. **Host Controls**: Buttons for starting new games or getting new players
+
+## 🐛 Debugging
+
+### Backend Logs
+The server logs all major events. Look for:
+```
+🎯 Over Under Game Server running on port 3000
+Player [name] joined Over Under room [code]
+Round X started - [player] is the answerer
 ```
 
-## 🎮 Game Flow
-
-1. **🏠 Setup**: Open Unity main screen, click "Create Room"
-2. **📱 Join**: Players visit phone client, enter room code + name
-3. **⏳ Lobby**: Unity shows player list, host clicks "Start Game"
-4. **🎴 Gameplay**: Players play cards from phones, Unity shows updates
-5. **🏆 Victory**: Unity displays winner with celebration animation
-
-## 🚀 Getting Started
-
-### **Prerequisites**
-- **Unity**: 2022.3 LTS or later
-- **Node.js**: v16 or later  
-- **Modern Browser**: For phone clients
-
-### **Quick Start (3 Steps)**
-
-**Step 1: Start Backend Server**
-```powershell
-cd backend
-npm install
-npm start
+### Phone Client Logs  
+Open browser developer tools and check console for:
 ```
-✅ Server running on http://localhost:3000
-
-**Step 2: Launch Unity Main Screen**  
-```powershell
-# Open Unity Hub → Open Project
-# Navigate to: Crazy8sMainScreen/
-# Press Play button in Unity Editor
-```
-✅ Unity client connected to backend
-
-**Step 3: Start Phone Client**
-```powershell  
-cd phone-client
-npm install  
-npm run dev
-```
-✅ Phone client on http://localhost:5173
-
-### **🎮 How to Play (Step by Step)**
-
-1. **Unity Setup:**
-   - Unity editor running with scene loaded
-   - Click "Create Room" → displays 4-letter code
-   
-2. **Players Join:**
-   - Open http://localhost:5173 on phones
-   - Enter room code + player name
-   - Unity shows players joining in real-time
-   
-3. **Start Game:**
-   - Unity host clicks "Start Game"
-   - Unity displays first player and game state
-   - Players see their cards on phones
-   
-4. **Play Game:**
-   - Players tap cards on phones to play
-   - Unity shows card animations and updates
-   - Game continues until someone wins
-   
-5. **Victory:**
-   - Unity displays winner with celebration
-   - Option to start new game
-
-## 🔗 **Development URLs**
-- **Unity Main Screen**: Runs in Unity Editor (localhost backend connection)
-- **Phone Client**: http://localhost:5173  
-- **Backend API**: http://localhost:3000
-- **Socket.IO Connection**: ws://localhost:3000/socket.io/
-
-## 🏗️ **Unity Development Setup**
-
-### **Required Unity Packages**
-```json
-{
-  "com.unity.textmeshpro": "3.0.6",
-  "com.unity.inputsystem": "1.5.1", 
-  "com.unity.render-pipelines.universal": "14.0.8"
-}
+📡 PHONE: Received event 'show-question'
+🔧 PHONE: Over Under event listeners set up
 ```
 
-### **Socket.IO Unity Package**
-Install via Package Manager:
-```
-https://github.com/itisnajim/SocketIOUnity.git
-```
+## 🤝 Testing Checklist
 
-### **Build Settings**
-- **Platform**: PC, Mac & Linux Standalone
-- **Target**: Windows x64 (or your platform)
-- **Optimization**: Release mode for production builds
+- [ ] Multiple phones can join the same room
+- [ ] Questions appear for all players
+- [ ] Only answerer can submit numeric answers
+- [ ] Only non-answerers can vote Over/Under
+- [ ] Voting timer counts down correctly
+- [ ] Scores update after each round
+- [ ] Game ends after all players answer once
+- [ ] Host controls work for restarting/new players
 
-## ✅ **Project Status**
+---
 
-| Component | Status | Features |
-|-----------|--------|----------|
-| 📱 **Phone Client** | ✅ Complete | Join rooms, play cards, real-time sync |
-| 🖥️ **Unity Main Screen** | ✅ Complete | Room creation, game display, animations |
-| ⚡ **Backend Server** | ✅ Complete | WebSocket hub, game logic, room management |
-| 🌐 **Real-time Sync** | ✅ Working | Bidirectional WebSocket communication |
-| 🎮 **Game Logic** | ✅ Complete | Full Crazy 8s rules implementation |
-| 🎨 **Visual Polish** | ✅ Complete | Animations, effects, responsive design |
-
-**� Ready for production deployment and multiplayer gaming!**
-
-## 📝 Development Notes
-
-### **Unity Architecture**
-- **Singleton Pattern**: GameManager provides global access
-- **Event-Driven**: Managers communicate via C# events
-- **Component-Based**: Each system is a separate MonoBehaviour
-- **Thread-Safe**: Socket events queued for main thread execution
-
-### **Performance Considerations**
-- **60 FPS Target**: Optimized rendering and animations
-- **Background Processing**: Continues running when window loses focus
-- **Memory Management**: Proper object cleanup and pooling
-- **Network Efficiency**: Minimal data transfer with JSON serialization
-
-### **Deployment Options**
-- **Standalone Builds**: Windows/Mac/Linux executables
-- **WebGL Build**: Browser-based Unity client (alternative)
-- **Mobile Export**: Android/iOS builds possible with UI adjustments
+Ready to test! Start the backend and phone client, then build your Unity display to complete the experience. 🎮

@@ -49,34 +49,36 @@ class SocketService {
       this.emit('game-state-updated', data);
     });
 
-    this.socket.on('card-played', (data) => {
-      console.log('Card played:', data);
-      this.emit('card-played', data);
+
+
+    this.socket.on('show-question', (data) => {
+      console.log('Question received:', data);
+      this.emit('show-question', data);
     });
 
-    this.socket.on('card-drawn', (data) => {
-      console.log('Card drawn:', data);
-      this.emit('card-drawn', data);
+    this.socket.on('voting-phase', (data) => {
+      console.log('Voting phase started:', data);
+      this.emit('voting-phase', data);
     });
 
-    this.socket.on('suit-chosen', (data) => {
-      console.log('Suit chosen:', data);
-      this.emit('suit-chosen', data);
+    this.socket.on('vote-submitted', (data) => {
+      console.log('Vote submitted update:', data);
+      this.emit('vote-submitted', data);
     });
 
-    this.socket.on('round-started', (data) => {
-      console.log('Round started:', data);
-      this.emit('round-started', data);
+    this.socket.on('voting-timer-update', (data) => {
+      console.log('Voting timer update:', data);
+      this.emit('voting-timer-update', data);
     });
 
-    this.socket.on('round-ended', (data) => {
-      console.log('Round ended:', data);
-      this.emit('round-ended', data);
+    this.socket.on('round-results', (data) => {
+      console.log('Round results:', data);
+      this.emit('round-results', data);
     });
 
-    this.socket.on('game-ended', (data) => {
-      console.log('Game ended:', data);
-      this.emit('game-ended', data);
+    this.socket.on('update-scoreboard', (data) => {
+      console.log('Scoreboard update:', data);
+      this.emit('update-scoreboard', data);
     });
 
     this.socket.on('game-over', (data) => {
@@ -132,7 +134,7 @@ class SocketService {
     });
   }
 
-  // Crazy 8s specific methods - using direct emit for real-time actions
+  // Over Under specific methods - using direct emit for real-time actions
   emitGameAction(event, data) {
     if (this.socket) {
       this.socket.emit(event, data);

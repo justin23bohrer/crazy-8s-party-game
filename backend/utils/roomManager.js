@@ -1,11 +1,11 @@
-// Room Manager - Handles game rooms, players, and Crazy 8s game state
-const Crazy8sGameLogic = require('./crazy8sGameLogic');
+// Room Manager - Handles game rooms, players, and Over Under game state
+const OverUnderGameLogic = require('./overUnderGameLogic');
 
 class RoomManager {
   constructor() {
     this.rooms = new Map(); // { roomCode: room object }
     this.playerToRoom = new Map(); // { playerId: roomCode } for quick lookup
-    this.gameLogic = new Crazy8sGameLogic();
+    this.gameLogic = new OverUnderGameLogic();
     
     // Available player colors (max 4 players)
     this.availableColors = ['red', 'blue', 'green', 'yellow'];
@@ -28,20 +28,24 @@ class RoomManager {
     const roomCode = this.generateRoomCode();
     const room = {
       hostId,
-      players: new Map(), // { playerId: { name, id, connected: bool, cardCount: 0, color: string } }
+      players: new Map(), // { playerId: { name, id, connected: bool, color: string, score: 0 } }
       assignedColors: new Set(), // Track which colors are taken
       gameState: {
         phase: 'lobby', // lobby, playing, game-over
-        currentPlayer: 0,
-        deck: [],
-        discardPile: [],
-        playerHands: {},
-        currentColor: null, // Changed from currentSuit to currentColor
-        chosenColor: null, // Changed from chosenSuit to chosenColor - When an 8 is played
-        lastPlayedCard: null,
-        turnCount: 0,
-        isAnimating: false, // Track if spiral animation is playing - blocks all player actions
-        animationEndTime: null // When animation will end
+        currentRound: 1,
+        totalRounds: 0,
+        roundsCompleted: 0,
+        currentAnswerer: null,
+        currentQuestion: null,
+        currentAnswer: null,
+        correctAnswer: null,
+        votes: new Map(),
+        scores: new Map(),
+        roundResults: [],
+        votingTimeLeft: 30,
+        isVotingActive: false,
+        answererSubmitted: false,
+        usedQuestions: new Set()
       },
       created: new Date(),
       maxPlayers: 4 // Max 4 players for color assignment (red, blue, green, yellow)
@@ -50,7 +54,7 @@ class RoomManager {
     this.rooms.set(roomCode, room);
     this.playerToRoom.set(hostId, roomCode);
     
-    console.log(`Crazy 8s room created: ${roomCode} by host ${hostId}`);
+    console.log(`Over Under room created: ${roomCode} by host ${hostId}`);
     return roomCode;
   }
 
@@ -111,7 +115,7 @@ class RoomManager {
       id: playerId,
       name: playerName,
       connected: true,
-      cardCount: 0,
+      score: 0,
       color: playerColor,
       joinedAt: new Date(),
       isFirstPlayer: room.players.size === 0 // True if this is the first player
@@ -120,102 +124,31 @@ class RoomManager {
     room.players.set(playerId, player);
     this.playerToRoom.set(playerId, roomCode);
 
-    console.log(`Player ${playerName} (${playerId}) joined Crazy 8s room ${roomCode} with color ${playerColor}${player.isFirstPlayer ? ' (FIRST PLAYER)' : ''}`);
+    console.log(`Player ${playerName} (${playerId}) joined Over Under room ${roomCode} with color ${playerColor}${player.isFirstPlayer ? ' (FIRST PLAYER)' : ''}`);
     return { success: true, player, roomData: this.getRoomData(roomCode) };
   }
 
-  // Handle player action (play card, draw card, choose suit)
-  handlePlayerAction(roomCode, playerId, action) {
+  // Get current game state for Over Under display
+  getCurrentGameState(roomCode, playerId = null) {
     const room = this.rooms.get(roomCode);
-    if (!room) return { success: false, error: 'Room not found' };
+    if (!room) return null;
 
-    if (room.gameState.phase !== 'playing') {
-      return { success: false, error: 'Game not in progress' };
+    const gameState = this.gameLogic.getCurrentGameState(room.gameState, room.players);
+    
+    // Add player-specific information if playerId provided
+    if (playerId) {
+      gameState.isAnswerer = this.gameLogic.isPlayerAnswerer(room.gameState, playerId);
+      gameState.canVote = this.gameLogic.canPlayerVote(room.gameState, playerId);
+      gameState.playerVote = room.gameState.votes.get(playerId) || null;
     }
-
-    // Check if spiral animation is blocking actions
-    if (this.isAnimationBlocking(room)) {
-      return { success: false, error: 'Please wait for the animation to complete' };
-    }
-
-    const playerIndex = this.getPlayerIndex(room, playerId);
-    if (playerIndex === -1) {
-      return { success: false, error: 'Player not found' };
-    }
-
-    if (playerIndex !== room.gameState.currentPlayer) {
-      return { success: false, error: 'Not your turn' };
-    }
-
-    switch (action.type) {
-      case 'play_card':
-        return this.handlePlayCard(room, playerIndex, action.cardIndex, action.chosenColor); // Changed from chosenSuit to chosenColor
-      case 'draw_card':
-        return this.handleDrawCard(room, playerIndex);
-      case 'choose_color': // Changed from choose_suit to choose_color
-        return this.handleChooseColor(room, playerIndex, action.color); // Changed from action.suit to action.color
-      default:
-        return { success: false, error: 'Unknown action type' };
-    }
+    
+    return gameState;
   }
 
-  // Check if spiral animation is currently blocking player actions
-  isAnimationBlocking(room) {
-    if (!room.gameState.isAnimating) {
-      return false;
-    }
 
-    // Check if animation should have ended by now
-    if (room.gameState.animationEndTime && Date.now() > room.gameState.animationEndTime) {
-      // Animation time expired, clear the lock
-      room.gameState.isAnimating = false;
-      room.gameState.animationEndTime = null;
-      console.log('🎬 Animation lock expired and cleared');
-      return false;
-    }
 
-    // Animation is still active
-    return true;
-  }
-
-  // Start spiral animation lock (called when 8 card color is chosen)
-  startAnimationLock(roomCode, durationMs = 3300) { // 3.3 seconds for spiral animation
-    const room = this.rooms.get(roomCode);
-    if (!room) return;
-
-    room.gameState.isAnimating = true;
-    room.gameState.animationEndTime = Date.now() + durationMs;
-    console.log(`🎬 Started animation lock for ${durationMs}ms in room ${roomCode}`);
-  }
-
-  // Handle first card flip animation completion (called by Unity)
-  handleFirstCardFlipComplete(roomCode) {
-    const room = this.rooms.get(roomCode);
-    if (!room) {
-      console.log(`❌ Room ${roomCode} not found for first card flip completion`);
-      return { success: false, error: 'Room not found' };
-    }
-
-    // Clear animation lock to re-enable phone interactions
-    room.gameState.isAnimating = false;
-    room.gameState.animationEndTime = null;
-    console.log(`🎬 First card flip animation completed in room ${roomCode} - phones re-enabled`);
-
-    return { success: true };
-  }
-
-  // Clear animation lock (can be called manually if needed)
-  clearAnimationLock(roomCode) {
-    const room = this.rooms.get(roomCode);
-    if (!room) return;
-
-    room.gameState.isAnimating = false;
-    room.gameState.animationEndTime = null;
-    console.log(`🎬 Cleared animation lock in room ${roomCode}`);
-  }
-
-  // Start Crazy 8s game
-  startGame(roomCode, requesterId) {
+  // Start Over Under game
+  startOverUnderGame(roomCode, requesterId) {
     const room = this.rooms.get(roomCode);
     if (!room) {
       return { success: false, error: 'Room not found' };
@@ -233,177 +166,155 @@ class RoomManager {
       return { success: false, error: 'Need at least 2 players to start' };
     }
 
-    // Initialize Crazy 8s game
-    const deck = this.gameLogic.createDeck();
-    const playerCount = room.players.size;
-    const { hands, remainingDeck } = this.gameLogic.dealInitialHands(deck, playerCount);
+    // Initialize Over Under game
+    room.gameState = this.gameLogic.createGame(room.players);
+    room.gameState.totalRounds = room.players.size; // One round per player
     
-    // Set up starting card (not an 8)
-    const startCard = this.gameLogic.findValidStartCard(remainingDeck);
-    
-    room.gameState.phase = 'playing';
-    room.gameState.currentPlayer = 0;
-    room.gameState.deck = remainingDeck;
-    room.gameState.discardPile = [startCard];
-    room.gameState.playerHands = hands;
-    room.gameState.currentColor = startCard.color; // Changed from currentSuit to currentColor
-    room.gameState.chosenColor = null; // Changed from chosenSuit to chosenColor
-    room.gameState.lastPlayedCard = startCard;
-    room.gameState.turnCount = 0;
-
-    // Enable animation lock for first card flip animation (3 seconds)
-    room.gameState.isAnimating = true;
-    room.gameState.animationEndTime = Date.now() + 3000; // 3 seconds for first card flip
-    console.log(`🎬 Started first card flip animation lock for 3000ms in room ${roomCode}`);
-
-    // Update player card counts for UI
-    let playerIndex = 0;
+    // Initialize player scores
     for (const [playerId, player] of room.players) {
-      player.cardCount = hands[playerIndex].length;
-      playerIndex++;
+      room.gameState.scores.set(playerId, 0);
+      player.score = 0;
     }
 
-    console.log(`Crazy 8s game started in room ${roomCode} with ${playerCount} players`);
-    return { success: true, gameState: room.gameState };
+    console.log(`Over Under game started in room ${roomCode} with ${room.players.size} players, ${room.gameState.totalRounds} rounds`);
+    return { 
+      success: true, 
+      gameState: room.gameState,
+      totalRounds: room.gameState.totalRounds
+    };
   }
 
-  // Helper to get player index from ID
-  getPlayerIndex(room, playerId) {
-    let index = 0;
-    for (const [id] of room.players) {
-      if (id === playerId) return index;
-      index++;
-    }
-    return -1;
-  }
-
-  // Handle playing a card
-  handlePlayCard(room, playerIndex, cardIndex, chosenColor = null) { // Changed from chosenSuit to chosenColor
-    const playerHand = room.gameState.playerHands[playerIndex];
-    const card = playerHand[cardIndex];
-    const topCard = room.gameState.lastPlayedCard;
-
-    if (!card) {
-      return { success: false, error: 'Invalid card index' };
+  // Start next round
+  nextRound(roomCode) {
+    const room = this.rooms.get(roomCode);
+    if (!room) {
+      return { success: false, error: 'Room not found' };
     }
 
-    // Check if card can be played
-    const currentColor = room.gameState.chosenColor || room.gameState.currentColor; // Changed from currentSuit to currentColor
-    if (!this.gameLogic.canPlayCard(card, topCard, currentColor)) {
-      return { success: false, error: 'Cannot play this card' };
-    }
-
-    // Remove card from player's hand
-    playerHand.splice(cardIndex, 1);
-    room.gameState.discardPile.push(card);
-    room.gameState.lastPlayedCard = card;
-    room.gameState.turnCount++;
-
-    // Update player card count
-    const players = Array.from(room.players.values());
-    players[playerIndex].cardCount = playerHand.length;
-
-    // Handle 8s (wild cards)
-    if (card.rank === '8') {
-      // Check if this 8 wins the game
-      const isWinningPlay = this.gameLogic.hasWon(playerHand);
-      
-      if (isWinningPlay) {
-        // Skip color choice for winning 8 - just end the game
-        room.gameState.phase = 'game-over';
-        return { 
-          success: true, 
-          gameOver: true, 
-          winner: players[playerIndex].name,
-          winningEight: true // Flag to indicate this was a winning 8
-        };
-      } else if (chosenColor && this.gameLogic.isValidColor(chosenColor)) { // Changed from chosenSuit to chosenColor and isValidSuit to isValidColor
-        room.gameState.chosenColor = chosenColor; // Changed from chosenSuit to chosenColor
-        room.gameState.currentColor = chosenColor; // Changed from currentSuit to currentColor
-      } else {
-        // Need to choose color for non-winning 8
-        return { 
-          success: true, 
-          needColorChoice: true, // Changed from needSuitChoice to needColorChoice
-          gameOver: false,
-          winner: null
-        };
-      }
+    const result = this.gameLogic.nextRound(room.gameState, room.players);
+    
+    if (result.success) {
+      console.log(`Round ${room.gameState.currentRound} started in room ${roomCode}`);
+      return {
+        success: true,
+        question: result.question,
+        answerer: result.answerer,
+        roundNumber: result.roundNumber
+      };
+    } else if (result.gameOver) {
+      return { success: false, gameOver: true };
     } else {
-      // Regular card - update current color
-      room.gameState.currentColor = card.color; // Changed from suit to color and currentSuit to currentColor
-      room.gameState.chosenColor = null; // Changed from chosenSuit to chosenColor
+      return { success: false, error: 'Failed to start next round' };
+    }
+  }
+
+  // Handle answerer submitting their guess
+  handleSubmitAnswer(roomCode, playerId, answer) {
+    const room = this.rooms.get(roomCode);
+    if (!room) {
+      return { success: false, error: 'Room not found' };
     }
 
-    // Check for win
-    if (this.gameLogic.hasWon(playerHand)) {
-      room.gameState.phase = 'game-over';
-      return { 
-        success: true, 
-        gameOver: true, 
-        winner: players[playerIndex].name 
+    const result = this.gameLogic.submitAnswer(room.gameState, playerId, answer);
+    
+    if (result.success) {
+      const player = room.players.get(playerId);
+      return {
+        success: true,
+        answer: result.answer,
+        message: result.message,
+        question: room.gameState.currentQuestion.question,
+        answererName: player ? player.name : 'Unknown'
       };
     }
-
-    // Move to next player
-    room.gameState.currentPlayer = this.gameLogic.getNextPlayer(
-      room.gameState.currentPlayer, 
-      room.players.size
-    );
-
-    return { success: true };
-  }
-
-  // Handle drawing a card
-  handleDrawCard(room, playerIndex) {
-    if (room.gameState.deck.length === 0) {
-      // Reshuffle discard pile into deck (keep top card)
-      const topCard = room.gameState.discardPile.pop();
-      room.gameState.deck = this.gameLogic.shuffleDeck(room.gameState.discardPile);
-      room.gameState.discardPile = [topCard];
-    }
-
-    if (room.gameState.deck.length === 0) {
-      return { success: false, error: 'No cards left to draw' };
-    }
-
-    const drawnCard = room.gameState.deck.pop();
-    room.gameState.playerHands[playerIndex].push(drawnCard);
     
-    const players = Array.from(room.players.values());
-    players[playerIndex].cardCount++;
-
-    // Move to next player after drawing
-    room.gameState.currentPlayer = this.gameLogic.getNextPlayer(
-      room.gameState.currentPlayer, 
-      room.players.size
-    );
-
-    return { success: true, drawnCard };
+    return result;
   }
 
-  // Handle choosing color after playing an 8
-  handleChooseColor(room, playerIndex, color) { // Changed from handleChooseSuit to handleChooseColor and suit to color
-    if (!this.gameLogic.isValidColor(color)) { // Changed from isValidSuit to isValidColor
-      return { success: false, error: 'Invalid color choice' }; // Changed error message
+  // Handle other players voting
+  handleSubmitVote(roomCode, playerId, vote) {
+    const room = this.rooms.get(roomCode);
+    if (!room) {
+      return { success: false, error: 'Room not found' };
     }
 
-    room.gameState.chosenColor = color; // Changed from chosenSuit to chosenColor
-    room.gameState.currentColor = color; // Changed from currentSuit to currentColor
-
-    // NOTE: Animation lock is now handled in server.js before sending updates
-    // This ensures the lock is set before any game state updates reach players
-
-    // Move to next player
-    room.gameState.currentPlayer = this.gameLogic.getNextPlayer(
-      room.gameState.currentPlayer, 
-      room.players.size
-    );
-
-    return { success: true };
+    const result = this.gameLogic.submitVote(room.gameState, playerId, vote);
+    
+    if (result.success) {
+      const allVotesIn = this.gameLogic.areAllVotesIn(room.gameState, room.players);
+      
+      return {
+        success: true,
+        vote: result.vote,
+        message: result.message,
+        votesSubmitted: room.gameState.votes.size,
+        totalVotesNeeded: room.players.size - 1,
+        allVotesIn: allVotesIn
+      };
+    }
+    
+    return result;
   }
 
-  // Get room data for clients (for Crazy 8s)
+  // Calculate round results
+  calculateRoundResults(roomCode) {
+    const room = this.rooms.get(roomCode);
+    if (!room) {
+      return { success: false, error: 'Room not found' };
+    }
+
+    const results = this.gameLogic.calculateScores(room.gameState, room.players);
+    const roundEnd = this.gameLogic.endRound(room.gameState);
+    
+    // Update player scores for quick access
+    for (const [playerId, score] of room.gameState.scores) {
+      const player = room.players.get(playerId);
+      if (player) {
+        player.score = score;
+      }
+    }
+
+    return {
+      success: true,
+      question: results.question,
+      playerAnswer: results.playerAnswer,
+      correctAnswer: results.correctAnswer,
+      correctVote: results.correctVote,
+      winners: results.winners,
+      votes: results.votes,
+      currentScores: Array.from(room.gameState.scores.entries()).map(([playerId, score]) => {
+        const player = room.players.get(playerId);
+        return {
+          playerId: playerId,
+          playerName: player ? player.name : 'Unknown',
+          playerColor: player ? player.color : 'gray',
+          score: score
+        };
+      }),
+      gameComplete: roundEnd.gameComplete
+    };
+  }
+
+  // Get final results
+  getFinalResults(roomCode) {
+    const room = this.rooms.get(roomCode);
+    if (!room) {
+      return { success: false, error: 'Room not found' };
+    }
+
+    const results = this.gameLogic.getFinalResults(room.gameState, room.players);
+    
+    return {
+      success: true,
+      winner: results.winner,
+      finalScores: results.finalScores,
+      roundHistory: results.roundHistory
+    };
+  }
+
+
+
+  // Get room data for clients (for Over Under)
   getRoomData(roomCode) {
     const room = this.rooms.get(roomCode);
     if (!room) return null;
@@ -416,42 +327,37 @@ class RoomManager {
         id: p.id,
         name: p.name,
         connected: p.connected,
-        cardCount: p.cardCount || 0
+        color: p.color,
+        score: p.score || 0
       })),
       gameState: {
         phase: room.gameState.phase,
-        currentPlayer: room.gameState.currentPlayer,
-        currentColor: room.gameState.currentColor, // Changed from currentSuit to currentColor
-        chosenColor: room.gameState.chosenColor, // Changed from chosenSuit to chosenColor
-        topCard: room.gameState.lastPlayedCard,
-        deckCount: room.gameState.deck?.length || 0
+        currentRound: room.gameState.currentRound,
+        totalRounds: room.gameState.totalRounds,
+        currentAnswerer: room.gameState.currentAnswerer,
+        isVotingActive: room.gameState.isVotingActive,
+        votingTimeLeft: room.gameState.votingTimeLeft
       }
     };
   }
 
-  // Get game state for a specific player
+  // Get game state for a specific player (Over Under)
   getGameStateForPlayer(roomCode, playerId) {
     const room = this.rooms.get(roomCode);
     if (!room) return null;
 
-    const playerIndex = this.getPlayerIndex(room, playerId);
-    if (playerIndex === -1) return null;
-
+    const gameState = this.getCurrentGameState(roomCode, playerId);
+    
     return {
-      playerHand: room.gameState.playerHands[playerIndex] || [],
-      topCard: room.gameState.lastPlayedCard,
-      currentColor: room.gameState.chosenColor || room.gameState.currentColor, // Changed from currentSuit to currentColor
-      currentPlayer: room.gameState.currentPlayer,
-      players: Array.from(room.players.values()).map(p => ({ 
-        name: p.name, 
-        cardCount: p.cardCount || 0 
-      })),
-      canDraw: room.gameState.deck?.length > 0,
-      isYourTurn: playerIndex === room.gameState.currentPlayer,
-      needSuitChoice: false, // Will be set true when an 8 is played
-      isAnimating: room.gameState.isAnimating || false, // Include animation state for UI blocking
-      phase: room.gameState.phase || 'playing', // Include game phase so phone clients know game state
-      isRestarted: room.gameState.turnCount === 0 // Indicate if this is a fresh game
+      ...gameState,
+      roomCode: roomCode,
+      playerId: playerId,
+      players: Array.from(room.players.values()).map(p => ({
+        name: p.name,
+        color: p.color,
+        score: p.score || 0,
+        id: p.id
+      }))
     };
   }
 
@@ -525,23 +431,31 @@ class RoomManager {
     return rooms;
   }
 
-  // Get game state for main screen display
+  // Get game state for main screen display (Over Under)
   getMainScreenGameState(room) {
+    const currentGameState = this.gameLogic.getCurrentGameState(room.gameState, room.players);
+    
     return {
-      currentPlayer: Array.from(room.players.values())[room.gameState.currentPlayer]?.name,
-      topCard: room.gameState.lastPlayedCard,
-      currentColor: room.gameState.chosenColor || room.gameState.currentColor, // Changed from currentSuit to currentColor
-      deckCount: room.gameState.deck.length,
+      phase: currentGameState.phase,
+      currentRound: currentGameState.currentRound,
+      totalRounds: currentGameState.totalRounds,
+      question: currentGameState.question,
+      answerer: currentGameState.answerer,
+      playerAnswer: currentGameState.playerAnswer,
+      isVotingActive: currentGameState.isVotingActive,
+      votingTimeLeft: currentGameState.votingTimeLeft,
+      votesSubmitted: currentGameState.votesSubmitted,
+      totalVotesNeeded: currentGameState.totalVotesNeeded,
       players: Array.from(room.players.values()).map(p => ({
         name: p.name,
-        cardCount: p.cardCount,
-        color: p.color
+        color: p.color,
+        score: p.score || 0
       })),
-      isAnimating: room.gameState.isAnimating || false // Include animation state
+      scores: currentGameState.scores
     };
   }
 
-  // Restart game with same players - Step 4 implementation
+  // Restart Over Under game with same players
   restartGame(roomCode, requesterId) {
     const room = this.rooms.get(roomCode);
     if (!room) {
@@ -560,73 +474,55 @@ class RoomManager {
       return { success: false, error: 'Need at least 2 players to restart' };
     }
 
-    console.log(`🔄 Restarting game in room ${roomCode} with same players`);
+    console.log(`🔄 Restarting Over Under game in room ${roomCode} with same players`);
 
-    // Reset winner animation and game state
-    room.gameState.isAnimating = false;
-    room.gameState.animationEndTime = null;
-
-    // Generate new shuffled deck using existing card creation logic
-    const deck = this.gameLogic.createDeck();
-    const playerCount = room.players.size;
+    // Reset game state with fresh Over Under game
+    room.gameState = this.gameLogic.createGame(room.players);
+    room.gameState.totalRounds = room.players.size;
     
-    // Deal 7 cards to each existing player
-    const { hands, remainingDeck } = this.gameLogic.dealInitialHands(deck, playerCount);
-    
-    // Set a random starting card on discard pile (not an 8)
-    const startCard = this.gameLogic.findValidStartCard(remainingDeck);
-    
-    // Reset game state with fresh game
-    room.gameState.phase = 'playing';
-    room.gameState.currentPlayer = 0; // Reset current player to 0
-    room.gameState.deck = remainingDeck;
-    room.gameState.discardPile = [startCard];
-    room.gameState.playerHands = hands;
-    room.gameState.currentColor = startCard.color;
-    room.gameState.chosenColor = null;
-    room.gameState.lastPlayedCard = startCard;
-    room.gameState.turnCount = 0;
-
-    // Update player card counts for UI
-    let playerIndex = 0;
+    // Reset player scores
     for (const [playerId, player] of room.players) {
-      player.cardCount = hands[playerIndex].length;
-      playerIndex++;
+      room.gameState.scores.set(playerId, 0);
+      player.score = 0;
     }
 
-    console.log(`✅ Game restarted successfully in room ${roomCode}`);
+    console.log(`✅ Over Under game restarted successfully in room ${roomCode}`);
     return { success: true, gameState: room.gameState };
   }
 
-  // Start new game with new players - Step 5 implementation  
+  // Start new Over Under game with new players
   startNewGame(roomCode, requesterId) {
     const room = this.rooms.get(roomCode);
     if (!room) {
       return { success: false, error: 'Room not found' };
     }
 
-    console.log(`👥 Starting new game with new players for room ${roomCode}`);
+    console.log(`👥 Starting new Over Under game with new players for room ${roomCode}`);
 
     // Generate new room code
     const newRoomCode = this.generateRoomCode();
     
-    // Create new room for the host
+    // Create new room for the host with Over Under state
     const newRoom = {
       hostId: requesterId,
       players: new Map(),
       assignedColors: new Set(),
       gameState: {
         phase: 'lobby',
-        currentPlayer: 0,
-        deck: [],
-        discardPile: [],
-        playerHands: {},
-        currentColor: null,
-        chosenColor: null,
-        lastPlayedCard: null,
-        turnCount: 0,
-        isAnimating: false,
-        animationEndTime: null
+        currentRound: 1,
+        totalRounds: 0,
+        roundsCompleted: 0,
+        currentAnswerer: null,
+        currentQuestion: null,
+        currentAnswer: null,
+        correctAnswer: null,
+        votes: new Map(),
+        scores: new Map(),
+        roundResults: [],
+        votingTimeLeft: 30,
+        isVotingActive: false,
+        answererSubmitted: false,
+        usedQuestions: new Set()
       },
       created: new Date(),
       maxPlayers: 4
@@ -644,7 +540,7 @@ class RoomManager {
     this.rooms.set(newRoomCode, newRoom);
     this.playerToRoom.set(requesterId, newRoomCode);
 
-    console.log(`✅ New game created with room code: ${newRoomCode}`);
+    console.log(`✅ New Over Under game created with room code: ${newRoomCode}`);
     return { success: true, newRoomCode: newRoomCode };
   }
 }
