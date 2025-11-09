@@ -30,7 +30,7 @@ The game consists of three components:
 ### 3. **Backend Server** (Node.js + Socket.IO)
 - Manages rooms, players, and game state
 - Handles trivia questions and scoring
-- Coordinates communication between Unity and phones
+- Coordinates communicatedekfbdwekqubfwubefion between Unity and phones
 - **Status: ✅ COMPLETE**
 
 ## 🎯 Game Flow
