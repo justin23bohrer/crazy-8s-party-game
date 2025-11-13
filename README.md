@@ -81,8 +81,6 @@ jackbox-attempt/
 ├── 📖 Documentation
 │   ├── README.md                  # This file
 │   ├── QUICKSTART.md             # Quick setup guide
-│   └── .github/
-│       └── copilot-instructions.md
 ```
 
 ## 🚀 Unity Main Screen Features
