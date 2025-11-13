@@ -278,7 +278,7 @@ https://github.com/itisnajim/SocketIOUnity.git
 | 🎮 **Game Logic** | ✅ Complete | Full Crazy 8s rules implementation |
 | 🎨 **Visual Polish** | ✅ Complete | Animations, effects, responsive design |
 
-**� Ready for production deployment and multiplayer gaming!**
+**Ready for production deployment and multiplayer gaming!**
 
 ## 📝 Development Notes
 
