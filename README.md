@@ -6,7 +6,7 @@ A complete real-time multiplayer Crazy 8s card game featuring Unity-powered main
 
 ```
 ┌─────────────────┐    WebSocket    ┌─────────────────┐    WebSocket    ┌─────────────────┐
-│   Phone Client  │ ←──────────────→ │     Backend     │ ←──────────────→ │   Unity Client  │
+│   Phone Client  │ ←─────────────→ │     Backend     │ ←─────────────→ │   Unity Client  │
 │   (React Web)   │                 │   (Node.js +    │                 │ (Main Screen/TV)│
 │   Players Join  │                 │   Socket.IO +   │                 │  Game Display   │
 │   & Play Cards  │                 │  Game Logic)    │                 │  & Host Control │
